@@ -2,16 +2,17 @@
 
 ## Current decision
 
-**Stage 0A on Linux x64: provisional go. Overall Phase 0: incomplete.**
+**Native-host gate: provisional go. Overall Phase 0: incomplete.**
 
 The NativeAOT core works through the libretro ABI and an installed RetroArch,
 but ordinary NativeAOT unload/reload behavior is not acceptable. Linux is only
 provisionally viable when the shared library is marked `NODELETE`, keeping one
 runtime resident until the frontend exits.
 
-Do not extract a reusable framework yet. Windows and macOS need equivalent
-native lifecycle probes and an explicit keep-resident strategy before Phase 1
-begins.
+The native host now passes 1,000 loader cycles under a 16 MiB RSS-growth ceiling
+on Linux, Windows, and macOS across x64 and Arm64. Do not extract a reusable
+framework yet: the equivalent RetroArch close, reload, core-switch, and exit
+tests remain outstanding.
 
 ## Probe scope
 
@@ -45,6 +46,10 @@ Recorded on 2026-08-15:
 | RetroArch | Flatpak 1.22.2, Git 69a4f0ea1e |
 | `libretro.h` | `libretro-common` commit `879c8d507b0b52e77e27d759239c2b5df1e26dfd` |
 | Header SHA-256 | `951c20c2e74b4e1cdfac69b702acb499902e8988e86de973d0922e23f50270ca` |
+
+The cross-platform matrix uses `ubuntu-22.04`, `ubuntu-22.04-arm`,
+`windows-2025`, `windows-11-arm`, `macos-15-intel`, and `macos-15` GitHub-hosted
+runners.
 
 ## Results
 
@@ -80,6 +85,25 @@ reported the expected API version, 160x144 geometry, 60 Hz frame rate, and 48
 kHz audio rate. Automated normal close/restart and core-switch testing remains
 outstanding.
 
+### Cross-platform native matrix
+
+[GitHub Actions run 31901687302](https://github.com/seanburkes/Libretro.CoreKit/actions/runs/31901687302)
+enforced a 16 MiB RSS-growth ceiling over 1,000 load/unload cycles and 2,000
+managed sessions on every target:
+
+| Target | RSS after first session | Final RSS | Growth |
+| --- | ---: | ---: | ---: |
+| Linux x64 | 3.66 MiB | 4.39 MiB | 0.73 MiB |
+| Linux Arm64 | 2.70 MiB | 3.37 MiB | 0.67 MiB |
+| Windows x64 | 7.39 MiB | 8.12 MiB | 0.73 MiB |
+| Windows Arm64 | 8.73 MiB | 9.43 MiB | 0.70 MiB |
+| macOS x64 | 3.69 MiB | 4.44 MiB | 0.75 MiB |
+| macOS Arm64 | 6.86 MiB | 7.67 MiB | 0.81 MiB |
+
+Windows and macOS required no additional keep-resident change for this probe.
+That is measured compatibility with the recorded toolchains, not a claim that
+NativeAOT library unloading is supported.
+
 ## Interpretation
 
 The probe separates two concerns cleanly:
@@ -99,7 +123,6 @@ Stage 0B should stay focused on lifecycle compatibility:
 
 1. Run automated RetroArch close, reload, and conventional-core switch loops on
    Linux and measure process RSS.
-2. Build the same probe natively on Windows x64 and macOS Arm64/x64.
-3. Measure their default unload/reload behavior before adding a workaround.
-4. If needed, implement and validate a platform-specific keep-resident policy.
-5. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.
+2. Repeat the RetroArch lifecycle on Windows x64 and macOS Arm64/x64.
+3. Confirm normal frontend exit and process cleanup on each platform.
+4. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.
