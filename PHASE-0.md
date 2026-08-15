@@ -484,22 +484,22 @@ once.
 
 Goal: prove the same binary in the reference frontend.
 
-- [ ] Create a minimal `.info` file for the probe core.
-- [ ] Install the core and info file into an isolated RetroArch test profile.
-- [ ] Start RetroArch with verbose logging and no unrelated user configuration.
-- [ ] Load the probe without content or with its documented dummy content.
+- [x] Create a minimal `.info` file for the probe core.
+- [x] Install the core and info file into an isolated RetroArch test profile.
+- [x] Start RetroArch with verbose logging and no unrelated user configuration.
+- [x] Load the probe without content or with its documented dummy content.
 - [ ] Verify visible animation, audible stereo output, and responsive input.
-- [ ] Exercise reset.
-- [ ] Close content and load the probe again.
-- [ ] Restart the probe core.
-- [ ] Switch from the probe to one pinned conventional core and back.
-- [ ] Repeat the switch sequence 50 times manually or through stable UI/CLI
+- [x] Exercise reset.
+- [x] Close content and load the probe again.
+- [x] Restart the probe core.
+- [x] Switch from the probe to one pinned conventional core and back.
+- [x] Repeat the switch sequence 50 times manually or through stable UI/CLI
       automation.
-- [ ] Quit RetroArch normally after the probe has run.
+- [x] Quit RetroArch normally after the probe has run.
 - [ ] Repeat after a failed content load and after an unsupported operation.
-- [ ] Check RetroArch logs and OS crash reports after every scenario.
-- [ ] Record whether the native module remains resident after core closure.
-- [ ] Measure process memory across the switch sequence.
+- [x] Check RetroArch logs and OS crash reports after every scenario.
+- [x] Record whether the native module remains resident after core closure.
+- [x] Measure process memory across the switch sequence.
 
 Use a pinned RetroArch release for the blocking gate. A current stable release
 may be tested additionally, but changing frontend behavior must not make the

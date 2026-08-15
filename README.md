@@ -39,3 +39,19 @@ stress count with `COREKIT_STRESS_CYCLES=1000`.
 The generated core is intentionally a probe, not the reusable framework. It
 renders a 160x144 XRGB8888 test pattern, submits 48 kHz stereo audio, polls a
 RetroPad, supports no-content loading, and safely stubs unsupported features.
+
+## Run the Linux RetroArch lifecycle gate
+
+Requirements additionally include SDL2 development files and X11 (or Xvfb):
+
+```sh
+./eng/run-retroarch-phase-0.sh
+```
+
+The script builds the pinned RetroArch revision when needed, uses an isolated
+profile, switches between the NativeAOT probe and a conventional C control core
+50 times, enforces the 16 MiB RSS-growth ceiling, and verifies normal frontend
+exit through RetroArch's `QUIT` command. Set `RETROARCH_BINARY` to reuse an
+already-built compatible revision. CI supplies `tests/RetroArch/headless.cfg`
+to isolate the loader lifecycle from virtual display and audio drivers; the
+default local configuration uses SDL2 for the video and audio smoke path.
