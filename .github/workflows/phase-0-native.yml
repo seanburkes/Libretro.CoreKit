@@ -87,3 +87,33 @@ jobs:
           name: phase-0-${{ matrix.rid }}
           path: artifacts/phase-0/${{ matrix.rid }}/core/${{ matrix.core }}
           if-no-files-found: error
+
+  retroarch-lifecycle:
+    name: Linux x64 RetroArch
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install NativeAOT and RetroArch prerequisites
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y clang zlib1g-dev libsdl2-dev xvfb
+
+      - name: Run RetroArch lifecycle gate
+        run: xvfb-run -a ./eng/run-retroarch-phase-0.sh
+
+      - name: Upload RetroArch evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-0-retroarch-linux-x64
+          path: |
+            artifacts/retroarch/*/lifecycle.log
+            artifacts/retroarch/*/lifecycle-summary.log
+          if-no-files-found: warn
