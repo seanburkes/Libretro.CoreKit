@@ -9,6 +9,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <psapi.h>
 typedef HMODULE core_handle;
 #else
 #include <dlfcn.h>
@@ -17,6 +18,8 @@ typedef void *core_handle;
 
 #if defined(__linux__)
 #include <unistd.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
 #endif
 
 struct core_api
@@ -349,7 +352,14 @@ static bool run_session(const struct core_api *api)
 
 static size_t resident_bytes(void)
 {
-#if defined(__linux__)
+#if defined(_WIN32)
+   PROCESS_MEMORY_COUNTERS counters;
+   memset(&counters, 0, sizeof(counters));
+   counters.cb = sizeof(counters);
+   if (!GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters)))
+      return 0;
+   return (size_t)counters.WorkingSetSize;
+#elif defined(__linux__)
    FILE *status = fopen("/proc/self/statm", "r");
    unsigned long total_pages;
    unsigned long resident_pages;
@@ -369,6 +379,14 @@ static size_t resident_bytes(void)
    if (page_size <= 0)
       return 0;
    return (size_t)resident_pages * (size_t)page_size;
+#elif defined(__APPLE__)
+   mach_task_basic_info_data_t info;
+   mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+   kern_return_t result = task_info(
+         mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &count);
+   if (result != KERN_SUCCESS)
+      return 0;
+   return (size_t)info.resident_size;
 #else
    return 0;
 #endif
@@ -388,18 +406,36 @@ static bool parse_iterations(const char *text, unsigned *iterations)
    return true;
 }
 
+static bool parse_rss_limit(const char *text, double *limit_mib)
+{
+   char *end;
+   double parsed;
+
+   errno = 0;
+   parsed = strtod(text, &end);
+   if (errno != 0 || *text == '\0' || *end != '\0' || parsed != parsed ||
+       parsed < 0.0 || parsed > 1000000.0)
+      return false;
+
+   *limit_mib = parsed;
+   return true;
+}
+
 int main(int argc, char **argv)
 {
    const char *core_path;
    unsigned iterations = 25;
    unsigned sessions_per_load = 2;
+   double max_rss_growth_mib = -1.0;
    unsigned iteration;
    size_t rss_after_first_session = 0;
    size_t rss_at_end;
 
-   if (argc < 2 || argc > 4)
+   if (argc < 2 || argc > 5)
    {
-      fprintf(stderr, "usage: %s CORE_PATH [LOAD_CYCLES] [SESSIONS_PER_LOAD]\n", argv[0]);
+      fprintf(stderr,
+              "usage: %s CORE_PATH [LOAD_CYCLES] [SESSIONS_PER_LOAD] [MAX_RSS_GROWTH_MIB]\n",
+              argv[0]);
       return EXIT_FAILURE;
    }
 
@@ -409,9 +445,14 @@ int main(int argc, char **argv)
       fprintf(stderr, "invalid iteration count: %s\n", argv[2]);
       return EXIT_FAILURE;
    }
-   if (argc == 4 && !parse_iterations(argv[3], &sessions_per_load))
+   if (argc >= 4 && !parse_iterations(argv[3], &sessions_per_load))
    {
       fprintf(stderr, "invalid sessions-per-load count: %s\n", argv[3]);
+      return EXIT_FAILURE;
+   }
+   if (argc == 5 && !parse_rss_limit(argv[4], &max_rss_growth_mib))
+   {
+      fprintf(stderr, "invalid maximum RSS growth: %s\n", argv[4]);
       return EXIT_FAILURE;
    }
 
@@ -466,6 +507,18 @@ int main(int argc, char **argv)
              (double)rss_after_first_session / (1024.0 * 1024.0),
              (double)rss_at_end / (1024.0 * 1024.0),
              (double)growth / (1024.0 * 1024.0));
+
+      if (max_rss_growth_mib >= 0.0 &&
+          (double)growth > max_rss_growth_mib * 1024.0 * 1024.0)
+      {
+         fprintf(stderr, "RSS growth exceeded the %.2f MiB limit\n", max_rss_growth_mib);
+         return EXIT_FAILURE;
+      }
+   }
+   else if (max_rss_growth_mib >= 0.0)
+   {
+      fprintf(stderr, "RSS measurement is unavailable on this platform\n");
+      return EXIT_FAILURE;
    }
    return EXIT_SUCCESS;
 }

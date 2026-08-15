@@ -15,6 +15,7 @@ target_include_directories(
 
 if(MSVC)
   target_compile_options(libretro_native_host PRIVATE /W4 /WX)
+  target_link_libraries(libretro_native_host PRIVATE Psapi)
 else()
   target_compile_options(libretro_native_host PRIVATE -Wall -Wextra -Wpedantic -Werror)
   target_link_libraries(libretro_native_host PRIVATE ${CMAKE_DL_LIBS})
@@ -24,9 +25,14 @@ if(DEFINED CORE_PATH)
     set(CORE_CYCLES 25)
   endif()
 
+  set(phase_0_test_arguments "${CORE_PATH}" "${CORE_CYCLES}")
+  if(DEFINED CORE_MAX_RSS_GROWTH_MIB)
+    list(APPEND phase_0_test_arguments 2 "${CORE_MAX_RSS_GROWTH_MIB}")
+  endif()
+
   enable_testing()
   add_test(
     NAME phase_0_native_lifecycle
-    COMMAND libretro_native_host "${CORE_PATH}" "${CORE_CYCLES}"
+    COMMAND libretro_native_host ${phase_0_test_arguments}
   )
 endif()
