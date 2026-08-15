@@ -67,7 +67,8 @@ jobs:
           -S tests/Libretro.NativeHost
           -B artifacts/phase-0/${{ matrix.rid }}/native-host
           -DCORE_PATH=${{ github.workspace }}/artifacts/phase-0/${{ matrix.rid }}/core/${{ matrix.core }}
-          -DCORE_CYCLES=100
+          -DCORE_CYCLES=1000
+          -DCORE_MAX_RSS_GROWTH_MIB=16
           -DCMAKE_BUILD_TYPE=Release
 
       - name: Build native lifecycle host
