@@ -52,8 +52,11 @@ The script builds the pinned RetroArch revision when needed, uses an isolated
 profile, switches between the NativeAOT probe and a conventional C control core
 50 times, enforces the 16 MiB RSS-growth ceiling, and verifies normal frontend
 exit through RetroArch's `QUIT` command. It also verifies recovery from missing
-content and unsupported save/load-state commands. Set `RETROARCH_BINARY` to
-reuse an already-built compatible revision. CI supplies
-`tests/RetroArch/headless.cfg` to isolate the loader lifecycle from virtual
-display and audio drivers; the default local configuration uses SDL2 for the
-video and audio smoke path.
+content, content closure, and unsupported save/load-state commands. The pinned
+source build applies the narrow command-poller lifetime fix in
+`eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
+commands can free the UDP command object while it is still being polled. Set
+`RETROARCH_BINARY` only to reuse a compatible build that includes this fix. CI
+supplies `tests/RetroArch/headless.cfg` to isolate the loader lifecycle from
+virtual display and audio drivers; the default local configuration uses SDL2
+for the video and audio smoke path.

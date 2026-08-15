@@ -79,15 +79,13 @@ def run_core(sock, port, core, label, reset, unsupported_state=False):
         probe(sock, port, f"{label} RESET")
     if unsupported_state:
         exercise_unsupported_state(sock, port)
-    send(sock, port, "CLOSE_CONTENT")
+    send(sock, port, "UNLOAD_CORE")
     wait_for(
         sock,
         port,
         lambda value: "CONTENTLESS" in value,
-        f"{label} content close",
+        f"{label} core unload",
     )
-    send(sock, port, "UNLOAD_CORE")
-    time.sleep(0.05)
     probe(sock, port, f"{label} UNLOAD_CORE")
 
 
@@ -109,6 +107,41 @@ def exercise_unsupported_state(sock, port):
         send(sock, port, command)
         time.sleep(0.25)
         probe(sock, port, f"unsupported {command}")
+
+
+def exercise_close_content(sock, port, core):
+    send(sock, port, f"LOAD_CORE {core}")
+    time.sleep(0.05)
+    probe(sock, port, "close recovery LOAD_CORE")
+    send(sock, port, "START_CORE")
+    wait_for(sock, port, lambda value: "PLAYING" in value, "close recovery start")
+    send(sock, port, "CLOSE_CONTENT")
+    wait_for(
+        sock,
+        port,
+        lambda value: "CONTENTLESS" in value,
+        "content close",
+    )
+
+    # CLOSE_CONTENT completes through RetroArch's menu loop and then reloads
+    # the selected core. Give that separate transition time to settle before
+    # asking the frontend to start it again.
+    time.sleep(1.0)
+    send(sock, port, "START_CORE")
+    wait_for(
+        sock,
+        port,
+        lambda value: "PLAYING" in value,
+        "restart after content close",
+    )
+    send(sock, port, "UNLOAD_CORE")
+    wait_for(
+        sock,
+        port,
+        lambda value: "CONTENTLESS" in value,
+        "close recovery core unload",
+    )
+    probe(sock, port, "close recovery UNLOAD_CORE")
 
 
 def parse_args():
@@ -160,6 +193,9 @@ def main():
         )
         print("rejected content load: recovered", flush=True)
 
+        exercise_close_content(sock, args.port, args.control_core)
+        print("content close and restart: recovered", flush=True)
+
         for cycle in range(1, args.cycles + 1):
             run_core(
                 sock,
@@ -203,7 +239,7 @@ def main():
                 raise RuntimeError(
                     f"RSS growth exceeded {args.rss_limit_mib} MiB limit"
                 )
-        print("PASS: RetroArch load/reset/close/unload/switch/quit lifecycle")
+        print("PASS: RetroArch load/reset/unload/switch/quit lifecycle")
         return 0
     except Exception as error:
         status = process.poll()

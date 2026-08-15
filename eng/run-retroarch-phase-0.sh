@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cycles="${COREKIT_RETROARCH_CYCLES:-50}"
 rss_limit="${COREKIT_RETROARCH_RSS_LIMIT_MIB:-16}"
 ra_commit="$(tr -d '[:space:]' < "${repo_root}/eng/retroarch/VERSION")"
+ra_patch="${repo_root}/eng/retroarch/0001-netcmd-return-after-reinit.patch"
 ra_root="${repo_root}/artifacts/retroarch/${ra_commit}"
 ra_source="${ra_root}/source"
 ra_binary="${RETROARCH_BINARY:-${ra_source}/retroarch}"
@@ -17,7 +18,7 @@ log_path="${ra_root}/lifecycle.log"
 summary_path="${ra_root}/lifecycle-summary.log"
 config_path="${COREKIT_RETROARCH_CONFIG:-${repo_root}/tests/RetroArch/stress.cfg}"
 
-if [[ -z "${RETROARCH_BINARY:-}" && ! -x "${ra_binary}" ]]; then
+if [[ -z "${RETROARCH_BINARY:-}" ]]; then
   mkdir -p "${ra_root}"
   if [[ ! -d "${ra_source}/.git" ]]; then
     git clone --filter=blob:none --no-checkout \
@@ -25,12 +26,21 @@ if [[ -z "${RETROARCH_BINARY:-}" && ! -x "${ra_binary}" ]]; then
   fi
   git -C "${ra_source}" fetch --depth=1 origin "${ra_commit}"
   git -C "${ra_source}" checkout --detach "${ra_commit}"
-  (
-    cd "${ra_source}"
-    ./configure --enable-command --disable-qt --disable-ffmpeg \
-      --disable-mpv --disable-discord --disable-caca --disable-sixel
-    make -j"$(getconf _NPROCESSORS_ONLN)"
-  )
+  if git -C "${ra_source}" apply --check "${ra_patch}"; then
+    git -C "${ra_source}" apply "${ra_patch}"
+  elif ! git -C "${ra_source}" apply --reverse --check "${ra_patch}"; then
+    echo "RetroArch command-interface patch does not apply cleanly" >&2
+    exit 1
+  fi
+  if [[ ! -x "${ra_binary}" ]] || \
+      [[ "${ra_source}/command.c" -nt "${ra_binary}" ]]; then
+    (
+      cd "${ra_source}"
+      ./configure --enable-command --disable-qt --disable-ffmpeg \
+        --disable-mpv --disable-discord --disable-caca --disable-sixel
+      make -j"$(getconf _NPROCESSORS_ONLN)"
+    )
+  fi
 fi
 
 if [[ ! -x "${ra_binary}" ]]; then
