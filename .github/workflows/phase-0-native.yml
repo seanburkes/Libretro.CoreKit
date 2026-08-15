@@ -89,7 +89,7 @@ jobs:
           if-no-files-found: error
 
   retroarch-lifecycle:
-    name: Linux x64 RetroArch
+    name: Linux x64 RetroArch (headless)
     runs-on: ubuntu-22.04
     timeout-minutes: 20
 
@@ -104,10 +104,12 @@ jobs:
         run: >-
           sudo apt-get update &&
           sudo apt-get install -y
-          clang zlib1g-dev libsdl2-dev libx11-xcb-dev xvfb
+          clang zlib1g-dev libsdl2-dev libx11-xcb-dev
 
       - name: Run RetroArch lifecycle gate
-        run: xvfb-run -a ./eng/run-retroarch-phase-0.sh
+        env:
+          COREKIT_RETROARCH_CONFIG: ${{ github.workspace }}/tests/RetroArch/headless.cfg
+        run: ./eng/run-retroarch-phase-0.sh
 
       - name: Upload RetroArch evidence
         if: always()

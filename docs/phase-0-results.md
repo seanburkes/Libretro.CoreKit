@@ -133,6 +133,13 @@ RetroArch. An ABI-equivalent conventional C core reproduced the failure, while
 is therefore tracked as a frontend/driver stress issue and is not used to judge
 NativeAOT. The blocking gate exercises ordinary core workflows instead.
 
+The first Xvfb CI attempt also segfaulted after 39 complete switch cycles while
+the conventional C control core was active. CI therefore runs the same frontend
+lifecycle with RetroArch's null video, audio, and input drivers, isolating core
+loading from the virtual SDL display stack. The SDL configuration remains the
+local video/audio smoke gate; neither control-core crash is attributed to
+NativeAOT.
+
 ## Interpretation
 
 The probe separates two concerns cleanly:

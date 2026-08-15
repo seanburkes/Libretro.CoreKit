@@ -66,22 +66,27 @@ def module_is_mapped(pid, path):
         return None
 
 
-def run_core(sock, port, core, reset):
+def run_core(sock, port, core, label, reset):
     send(sock, port, f"LOAD_CORE {core}")
     time.sleep(0.05)
-    probe(sock, port, "LOAD_CORE")
+    probe(sock, port, f"{label} LOAD_CORE")
     send(sock, port, "START_CORE")
-    wait_for(sock, port, lambda value: "PLAYING" in value, "core start")
+    wait_for(sock, port, lambda value: "PLAYING" in value, f"{label} core start")
     time.sleep(0.05)
     if reset:
         send(sock, port, "RESET")
         time.sleep(0.05)
-        probe(sock, port, "RESET")
+        probe(sock, port, f"{label} RESET")
     send(sock, port, "CLOSE_CONTENT")
-    wait_for(sock, port, lambda value: "CONTENTLESS" in value, "content close")
+    wait_for(
+        sock,
+        port,
+        lambda value: "CONTENTLESS" in value,
+        f"{label} content close",
+    )
     send(sock, port, "UNLOAD_CORE")
     time.sleep(0.05)
-    probe(sock, port, "UNLOAD_CORE")
+    probe(sock, port, f"{label} UNLOAD_CORE")
 
 
 def parse_args():
@@ -128,8 +133,8 @@ def main():
             raise RuntimeError("RetroArch did not enable its command interface")
 
         for cycle in range(1, args.cycles + 1):
-            run_core(sock, args.port, args.managed_core, reset=True)
-            run_core(sock, args.port, args.control_core, reset=False)
+            run_core(sock, args.port, args.managed_core, "managed", reset=True)
+            run_core(sock, args.port, args.control_core, "control", reset=False)
             rss = read_rss_kib(process.pid)
             if rss is not None:
                 if baseline_rss is None:

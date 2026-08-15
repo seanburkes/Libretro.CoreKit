@@ -15,6 +15,7 @@ installed_core="${profile_root}/cores/corekit_probe_libretro.so"
 installed_control="${profile_root}/cores/control_libretro.so"
 log_path="${ra_root}/lifecycle.log"
 summary_path="${ra_root}/lifecycle-summary.log"
+config_path="${COREKIT_RETROARCH_CONFIG:-${repo_root}/tests/RetroArch/stress.cfg}"
 
 if [[ -z "${RETROARCH_BINARY:-}" && ! -x "${ra_binary}" ]]; then
   mkdir -p "${ra_root}"
@@ -59,7 +60,7 @@ SDL_AUDIODRIVER=dummy \
 SDL_VIDEODRIVER=x11 \
 python3 "${repo_root}/tests/RetroArch/lifecycle.py" \
   --binary "${ra_binary}" \
-  --config "${repo_root}/tests/RetroArch/stress.cfg" \
+  --config "${config_path}" \
   --managed-core "${installed_core}" \
   --control-core "${installed_control}" \
   --cycles "${cycles}" \
