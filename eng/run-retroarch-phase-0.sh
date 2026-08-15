@@ -26,9 +26,9 @@ if [[ -z "${RETROARCH_BINARY:-}" ]]; then
   fi
   git -C "${ra_source}" fetch --depth=1 origin "${ra_commit}"
   git -C "${ra_source}" checkout --detach "${ra_commit}"
-  if git -C "${ra_source}" apply --check "${ra_patch}"; then
+  if git -C "${ra_source}" apply --check "${ra_patch}" 2>/dev/null; then
     git -C "${ra_source}" apply "${ra_patch}"
-  elif ! git -C "${ra_source}" apply --reverse --check "${ra_patch}"; then
+  elif ! git -C "${ra_source}" apply --reverse --check "${ra_patch}" 2>/dev/null; then
     echo "RetroArch command-interface patch does not apply cleanly" >&2
     exit 1
   fi
