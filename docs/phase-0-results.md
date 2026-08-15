@@ -114,6 +114,11 @@ ABI-equivalent conventional C core 50 times. Every cycle ran, reset, closed,
 and unloaded the managed core, then ran, closed, and unloaded the control core.
 RetroArch exited normally through its `QUIT` command.
 
+Before the switch loop, the gate attempts to load a missing content path and
+confirms that RetroArch returns to contentless state. During the first managed
+session it issues save-state and load-state commands, confirms RetroArch reports
+that the core does not support save states, and then completes normal teardown.
+
 The pinned source revision is newer than the installed stable build because the
 stable build predates the lifecycle command interface used by this automation.
 The result remains provisional until the same workflow is exercised against a
@@ -159,5 +164,4 @@ Stage 0B should stay focused on lifecycle compatibility:
 
 1. Repeat the RetroArch lifecycle on Windows x64 and macOS Arm64/x64.
 2. Confirm normal frontend exit and process cleanup on each remaining platform.
-3. Run the rejected-content and unsupported-operation recovery cases.
-4. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.
+3. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.

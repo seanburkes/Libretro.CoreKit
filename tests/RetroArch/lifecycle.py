@@ -66,7 +66,7 @@ def module_is_mapped(pid, path):
         return None
 
 
-def run_core(sock, port, core, label, reset):
+def run_core(sock, port, core, label, reset, unsupported_state=False):
     send(sock, port, f"LOAD_CORE {core}")
     time.sleep(0.05)
     probe(sock, port, f"{label} LOAD_CORE")
@@ -77,6 +77,8 @@ def run_core(sock, port, core, label, reset):
         send(sock, port, "RESET")
         time.sleep(0.05)
         probe(sock, port, f"{label} RESET")
+    if unsupported_state:
+        exercise_unsupported_state(sock, port)
     send(sock, port, "CLOSE_CONTENT")
     wait_for(
         sock,
@@ -87,6 +89,26 @@ def run_core(sock, port, core, label, reset):
     send(sock, port, "UNLOAD_CORE")
     time.sleep(0.05)
     probe(sock, port, f"{label} UNLOAD_CORE")
+
+
+def exercise_rejected_content(sock, port, core, missing_content):
+    if os.path.exists(missing_content):
+        raise RuntimeError(
+            f"rejected-content fixture unexpectedly exists: {missing_content}"
+        )
+    send(sock, port, f"LOAD_CONTENT {core}|{missing_content}")
+    time.sleep(1.0)
+    status = ask(sock, port, "GET_STATUS")
+    if not status or "CONTENTLESS" not in status:
+        raise RuntimeError(f"failed content load left unexpected status: {status!r}")
+    probe(sock, port, "rejected content load")
+
+
+def exercise_unsupported_state(sock, port):
+    for command in ("SAVE_STATE", "LOAD_STATE"):
+        send(sock, port, command)
+        time.sleep(0.25)
+        probe(sock, port, f"unsupported {command}")
 
 
 def parse_args():
@@ -132,8 +154,23 @@ def main():
         if not version:
             raise RuntimeError("RetroArch did not enable its command interface")
 
+        missing_content = f"{args.log}.missing-content"
+        exercise_rejected_content(
+            sock, args.port, args.managed_core, missing_content
+        )
+        print("rejected content load: recovered", flush=True)
+
         for cycle in range(1, args.cycles + 1):
-            run_core(sock, args.port, args.managed_core, "managed", reset=True)
+            run_core(
+                sock,
+                args.port,
+                args.managed_core,
+                "managed",
+                reset=True,
+                unsupported_state=cycle == 1,
+            )
+            if cycle == 1:
+                print("unsupported save/load state commands: recovered", flush=True)
             run_core(sock, args.port, args.control_core, "control", reset=False)
             rss = read_rss_kib(process.pid)
             if rss is not None:
