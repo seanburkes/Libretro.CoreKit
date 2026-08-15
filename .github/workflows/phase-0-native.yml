@@ -103,7 +103,8 @@ jobs:
       - name: Install NativeAOT and RetroArch prerequisites
         run: >-
           sudo apt-get update &&
-          sudo apt-get install -y clang zlib1g-dev libsdl2-dev xvfb
+          sudo apt-get install -y
+          clang zlib1g-dev libsdl2-dev libx11-xcb-dev xvfb
 
       - name: Run RetroArch lifecycle gate
         run: xvfb-run -a ./eng/run-retroarch-phase-0.sh
