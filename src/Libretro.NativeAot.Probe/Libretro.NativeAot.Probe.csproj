@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>corekit_probe_libretro</AssemblyName>
+    <RootNamespace>Libretro.NativeAot.Probe</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>false</StripSymbols>
+  </PropertyGroup>
+
+  <!-- NativeAOT shared libraries do not support unloading. On ELF targets,
+       make that limitation explicit so repeated frontend loads reuse one runtime. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <LinkerArg Include="-Wl,-z,nodelete" />
+  </ItemGroup>
+</Project>
