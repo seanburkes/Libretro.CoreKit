@@ -17,10 +17,12 @@ therefore claimed as the initial supported target. Linux deliberately marks the
 ELF library `NODELETE` because ordinary NativeAOT unloading retained runtime
 state on every reload.
 
-Phase 1 is now extracting the proven ABI into a reusable `Libretro.Core`
-assembly. The first slice contains the mandatory system/game information
-layouts and typed wrappers for no-content and XRGB8888 negotiation; native
-exports intentionally remain in each concrete NativeAOT publishing project.
+Phase 1 is complete. The reusable `Libretro.Core` assembly now contains the
+64-bit ABI layouts, frontend callback signatures, and the selected typed
+environment surface for input, core options v2, directories, messages,
+language, frame-state hints, no-content support, and pixel-format negotiation.
+Native exports intentionally remain in each concrete NativeAOT publishing
+project. Phase 2 will build the reusable core host behind those exports.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) tracks the active ABI
