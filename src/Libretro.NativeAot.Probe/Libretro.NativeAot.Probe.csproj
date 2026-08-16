@@ -20,4 +20,8 @@
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
     <LinkerArg Include="-Wl,-z,nodelete" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Libretro.Core/Libretro.Core.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,9 +1,10 @@
+// Derived from the pinned libretro.h. See NOTICE.md in this directory.
 using System.Runtime.InteropServices;
 
-namespace Libretro.NativeAot.Probe.Abi;
+namespace Libretro.Core.Abi;
 
 [StructLayout(LayoutKind.Sequential)]
-internal unsafe struct RetroSystemInfo
+public unsafe struct RetroSystemInfo
 {
     public byte* LibraryName;
     public byte* LibraryVersion;
@@ -11,8 +12,9 @@ internal unsafe struct RetroSystemInfo
     public byte NeedFullPath;
     public byte BlockExtract;
 }
+
 [StructLayout(LayoutKind.Sequential)]
-internal struct RetroGameGeometry
+public struct RetroGameGeometry
 {
     public uint BaseWidth;
     public uint BaseHeight;
@@ -22,21 +24,21 @@ internal struct RetroGameGeometry
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct RetroSystemTiming
+public struct RetroSystemTiming
 {
     public double FramesPerSecond;
     public double SampleRate;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct RetroSystemAvInfo
+public struct RetroSystemAvInfo
 {
     public RetroGameGeometry Geometry;
     public RetroSystemTiming Timing;
 }
 
 [StructLayout(LayoutKind.Sequential)]
-internal unsafe struct RetroGameInfo
+public unsafe struct RetroGameInfo
 {
     public byte* Path;
     public void* Data;

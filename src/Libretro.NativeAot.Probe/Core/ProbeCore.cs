@@ -1,4 +1,4 @@
-using Libretro.NativeAot.Probe.Abi;
+using Libretro.Core.Abi;
 
 namespace Libretro.NativeAot.Probe.Core;
 
@@ -107,12 +107,12 @@ internal sealed unsafe class ProbeCore
             return;
         }
 
-        if (callbacks.InputState(0, LibretroConstants.DeviceJoypad, 0, LibretroConstants.JoypadLeft) != 0)
+        if (callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.Left) != 0)
         {
             _cursorX = Math.Max(0, _cursorX - 2);
         }
 
-        if (callbacks.InputState(0, LibretroConstants.DeviceJoypad, 0, LibretroConstants.JoypadRight) != 0)
+        if (callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.Right) != 0)
         {
             _cursorX = Math.Min(Width - 12, _cursorX + 2);
         }
@@ -149,7 +149,7 @@ internal sealed unsafe class ProbeCore
     {
         var toneAmplitude = 3_000;
         if (callbacks.InputState != null &&
-            callbacks.InputState(0, LibretroConstants.DeviceJoypad, 0, LibretroConstants.JoypadA) != 0)
+            callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.A) != 0)
         {
             toneAmplitude = 6_000;
         }
