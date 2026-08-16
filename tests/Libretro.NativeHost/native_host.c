@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -59,12 +60,38 @@ struct observations
    unsigned audio_batch_calls;
    unsigned audio_sample_calls;
    unsigned input_poll_calls;
+   unsigned input_state_calls;
+   unsigned right_press_reports;
+   unsigned a_press_reports;
    size_t audio_frames;
+   uint64_t first_video_hash;
+   uint64_t second_video_hash;
+   uint64_t no_input_reset_video_hash;
+   uint64_t last_video_hash;
+   uint64_t first_audio_hash;
+   uint64_t second_audio_hash;
+   uint64_t no_input_reset_audio_hash;
+   uint64_t last_audio_hash;
+   bool provide_input;
    bool saw_nonzero_audio;
    bool callback_error;
 };
 
 static struct observations observations;
+
+static uint64_t hash_bytes(const void *data, size_t size)
+{
+   const uint8_t *bytes = data;
+   uint64_t hash = UINT64_C(14695981039346656037);
+   size_t index;
+
+   for (index = 0; index < size; index++)
+   {
+      hash ^= bytes[index];
+      hash *= UINT64_C(1099511628211);
+   }
+   return hash;
+}
 
 static void reset_observations(void)
 {
@@ -96,7 +123,20 @@ static void RETRO_CALLCONV video_callback(
       const void *data, unsigned width, unsigned height, size_t pitch)
 {
    if (data == NULL || width != 160 || height != 144 || pitch != 160 * sizeof(uint32_t))
+   {
       observations.callback_error = true;
+   }
+   else
+   {
+      uint64_t hash = hash_bytes(data, pitch * height);
+      if (observations.video_calls == 0)
+         observations.first_video_hash = hash;
+      else if (observations.video_calls == 1)
+         observations.second_video_hash = hash;
+      else if (observations.video_calls == 4)
+         observations.no_input_reset_video_hash = hash;
+      observations.last_video_hash = hash;
+   }
    observations.video_calls++;
 }
 
@@ -115,10 +155,23 @@ static size_t RETRO_CALLCONV audio_batch_callback(const int16_t *data, size_t fr
    size_t samples_to_check;
 
    if (data == NULL || frames != 800)
+   {
       observations.callback_error = true;
+   }
+   else
+   {
+      uint64_t hash = hash_bytes(data, frames * 2 * sizeof(*data));
+      if (observations.audio_batch_calls == 0)
+         observations.first_audio_hash = hash;
+      else if (observations.audio_batch_calls == 1)
+         observations.second_audio_hash = hash;
+      else if (observations.audio_batch_calls == 4)
+         observations.no_input_reset_audio_hash = hash;
+      observations.last_audio_hash = hash;
+   }
 
    samples_to_check = frames < 32 ? frames : 32;
-   for (index = 0; index < samples_to_check; index++)
+   for (index = 0; data != NULL && index < samples_to_check; index++)
    {
       if (data[index * 2] != data[(index * 2) + 1])
          observations.callback_error = true;
@@ -142,10 +195,20 @@ static int16_t RETRO_CALLCONV input_state_callback(
    if (port != 0 || device != RETRO_DEVICE_JOYPAD || index != 0)
       return 0;
 
-   if (id == RETRO_DEVICE_ID_JOYPAD_RIGHT && (observations.input_poll_calls % 2) != 0)
+   observations.input_state_calls++;
+   if (!observations.provide_input)
+      return 0;
+
+   if (id == RETRO_DEVICE_ID_JOYPAD_RIGHT)
+   {
+      observations.right_press_reports++;
       return 1;
-   if (id == RETRO_DEVICE_ID_JOYPAD_A && observations.input_poll_calls == 2)
+   }
+   if (id == RETRO_DEVICE_ID_JOYPAD_A)
+   {
+      observations.a_press_reports++;
       return 1;
+   }
    return 0;
 }
 
@@ -251,6 +314,51 @@ static bool check(bool condition, const char *message)
    return condition;
 }
 
+static bool validate_abi_layout(void)
+{
+   bool valid =
+      sizeof(void *) == 8 &&
+      sizeof(bool) == 1 &&
+      sizeof(struct retro_system_info) == 32 &&
+      _Alignof(struct retro_system_info) == 8 &&
+      offsetof(struct retro_system_info, library_name) == 0 &&
+      offsetof(struct retro_system_info, library_version) == 8 &&
+      offsetof(struct retro_system_info, valid_extensions) == 16 &&
+      offsetof(struct retro_system_info, need_fullpath) == 24 &&
+      offsetof(struct retro_system_info, block_extract) == 25 &&
+      sizeof(struct retro_game_geometry) == 20 &&
+      _Alignof(struct retro_game_geometry) == 4 &&
+      offsetof(struct retro_game_geometry, base_width) == 0 &&
+      offsetof(struct retro_game_geometry, base_height) == 4 &&
+      offsetof(struct retro_game_geometry, max_width) == 8 &&
+      offsetof(struct retro_game_geometry, max_height) == 12 &&
+      offsetof(struct retro_game_geometry, aspect_ratio) == 16 &&
+      sizeof(struct retro_system_timing) == 16 &&
+      _Alignof(struct retro_system_timing) == 8 &&
+      offsetof(struct retro_system_timing, fps) == 0 &&
+      offsetof(struct retro_system_timing, sample_rate) == 8 &&
+      sizeof(struct retro_system_av_info) == 40 &&
+      _Alignof(struct retro_system_av_info) == 8 &&
+      offsetof(struct retro_system_av_info, geometry) == 0 &&
+      offsetof(struct retro_system_av_info, timing) == 24 &&
+      sizeof(struct retro_game_info) == 32 &&
+      _Alignof(struct retro_game_info) == 8 &&
+      offsetof(struct retro_game_info, path) == 0 &&
+      offsetof(struct retro_game_info, data) == 8 &&
+      offsetof(struct retro_game_info, size) == 16 &&
+      offsetof(struct retro_game_info, meta) == 24;
+
+   printf("ABI: pointer=%zu, bool=%zu, system_info=%zu/%zu, geometry=%zu/%zu, "
+          "timing=%zu/%zu, av_info=%zu/%zu, game_info=%zu/%zu\n",
+          sizeof(void *), sizeof(bool),
+          sizeof(struct retro_system_info), _Alignof(struct retro_system_info),
+          sizeof(struct retro_game_geometry), _Alignof(struct retro_game_geometry),
+          sizeof(struct retro_system_timing), _Alignof(struct retro_system_timing),
+          sizeof(struct retro_system_av_info), _Alignof(struct retro_system_av_info),
+          sizeof(struct retro_game_info), _Alignof(struct retro_game_info));
+   return check(valid, "C ABI layouts");
+}
+
 static bool run_session(const struct core_api *api)
 {
    struct retro_system_info system_info;
@@ -310,18 +418,41 @@ static bool run_session(const struct core_api *api)
       return false;
 
    api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
-   for (frame = 0; frame < 4; frame++)
+   observations.provide_input = true;
+   api->retro_run();
+   observations.provide_input = false;
+   for (frame = 1; frame < 4; frame++)
       api->retro_run();
    api->retro_reset();
    api->retro_run();
+   api->retro_reset();
+   observations.provide_input = true;
+   api->retro_run();
 
    if (!check(!observations.callback_error, "callback arguments") ||
-       !check(observations.video_calls == 5, "video callback count") ||
-       !check(observations.audio_batch_calls == 5, "audio batch callback count") ||
+       !check(observations.video_calls == 6, "video callback count") ||
+       !check(observations.audio_batch_calls == 6, "audio batch callback count") ||
        !check(observations.audio_sample_calls == 0, "batch audio preference") ||
-       !check(observations.audio_frames == 5 * 800, "audio frame count") ||
+       !check(observations.audio_frames == 6 * 800, "audio frame count") ||
        !check(observations.saw_nonzero_audio, "generated tone") ||
-       !check(observations.input_poll_calls == 5, "input polling count"))
+       !check(observations.input_poll_calls == 6, "input polling count") ||
+       !check(observations.input_state_calls == 18, "input query count") ||
+       !check(observations.right_press_reports == 2, "direction input reports") ||
+       !check(observations.a_press_reports == 2, "button input reports") ||
+       !check(observations.first_video_hash != 0, "first video hash") ||
+       !check(observations.second_video_hash != observations.first_video_hash,
+              "moving video output") ||
+       !check(observations.no_input_reset_video_hash != observations.first_video_hash,
+              "input-sensitive video output") ||
+       !check(observations.last_video_hash == observations.first_video_hash,
+              "video reset determinism") ||
+       !check(observations.first_audio_hash != 0, "first audio hash") ||
+       !check(observations.second_audio_hash != observations.first_audio_hash,
+              "moving audio output") ||
+       !check(observations.no_input_reset_audio_hash != observations.first_audio_hash,
+              "input-sensitive audio output") ||
+       !check(observations.last_audio_hash == observations.first_audio_hash,
+              "audio reset determinism"))
       return false;
 
    if (!check(api->retro_serialize_size() == 0, "unsupported serialize size") ||
@@ -421,9 +552,65 @@ static bool parse_rss_limit(const char *text, double *limit_mib)
    return true;
 }
 
+static bool print_result(
+      FILE *stream,
+      unsigned iterations,
+      unsigned sessions_per_load,
+      size_t rss_after_first_session,
+      size_t rss_at_end)
+{
+   long long growth = (long long)rss_at_end - (long long)rss_after_first_session;
+   return fprintf(
+      stream,
+      "{\"result\":\"pass\",\"pointer_bits\":%zu,\"load_cycles\":%u,"
+      "\"sessions_per_load\":%u,\"managed_sessions\":%u,"
+      "\"rss_after_first_session_bytes\":%llu,\"rss_final_bytes\":%llu,"
+      "\"rss_growth_bytes\":%lld,\"video_first_hash\":\"%016llx\","
+      "\"audio_first_hash\":\"%016llx\"}\n",
+      sizeof(void *) * 8,
+      iterations,
+      sessions_per_load,
+      iterations * sessions_per_load,
+      (unsigned long long)rss_after_first_session,
+      (unsigned long long)rss_at_end,
+      growth,
+      (unsigned long long)observations.first_video_hash,
+      (unsigned long long)observations.first_audio_hash) >= 0;
+}
+
+static bool write_result(
+      const char *path,
+      unsigned iterations,
+      unsigned sessions_per_load,
+      size_t rss_after_first_session,
+      size_t rss_at_end)
+{
+   FILE *stream;
+   bool written;
+
+#if defined(_WIN32)
+   if (fopen_s(&stream, path, "w") != 0)
+      stream = NULL;
+#else
+   stream = fopen(path, "w");
+#endif
+   if (stream == NULL)
+   {
+      fprintf(stderr, "could not write result file: %s\n", path);
+      return false;
+   }
+
+   written = print_result(
+      stream, iterations, sessions_per_load, rss_after_first_session, rss_at_end);
+   if (fclose(stream) != 0)
+      written = false;
+   return written;
+}
+
 int main(int argc, char **argv)
 {
    const char *core_path;
+   const char *result_path = NULL;
    unsigned iterations = 25;
    unsigned sessions_per_load = 2;
    double max_rss_growth_mib = -1.0;
@@ -431,10 +618,11 @@ int main(int argc, char **argv)
    size_t rss_after_first_session = 0;
    size_t rss_at_end;
 
-   if (argc < 2 || argc > 5)
+   if (argc < 2 || argc > 6)
    {
       fprintf(stderr,
-              "usage: %s CORE_PATH [LOAD_CYCLES] [SESSIONS_PER_LOAD] [MAX_RSS_GROWTH_MIB]\n",
+              "usage: %s CORE_PATH [LOAD_CYCLES] [SESSIONS_PER_LOAD] "
+              "[MAX_RSS_GROWTH_MIB] [RESULT_PATH]\n",
               argv[0]);
       return EXIT_FAILURE;
    }
@@ -450,11 +638,16 @@ int main(int argc, char **argv)
       fprintf(stderr, "invalid sessions-per-load count: %s\n", argv[3]);
       return EXIT_FAILURE;
    }
-   if (argc == 5 && !parse_rss_limit(argv[4], &max_rss_growth_mib))
+   if (argc >= 5 && !parse_rss_limit(argv[4], &max_rss_growth_mib))
    {
       fprintf(stderr, "invalid maximum RSS growth: %s\n", argv[4]);
       return EXIT_FAILURE;
    }
+   if (argc == 6)
+      result_path = argv[5];
+
+   if (!validate_abi_layout())
+      return EXIT_FAILURE;
 
    for (iteration = 0; iteration < iterations; iteration++)
    {
@@ -520,5 +713,12 @@ int main(int argc, char **argv)
       fprintf(stderr, "RSS measurement is unavailable on this platform\n");
       return EXIT_FAILURE;
    }
+
+   printf("RESULT: ");
+   if (!print_result(stdout, iterations, sessions_per_load, rss_after_first_session, rss_at_end))
+      return EXIT_FAILURE;
+   if (result_path != NULL &&
+       !write_result(result_path, iterations, sessions_per_load, rss_after_first_session, rss_at_end))
+      return EXIT_FAILURE;
    return EXIT_SUCCESS;
 }

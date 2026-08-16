@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 rid="${COREKIT_RID:-linux-x64}"
 cycles="${COREKIT_STRESS_CYCLES:-25}"
+max_rss_growth_mib="${COREKIT_MAX_RSS_GROWTH_MIB:-16}"
 publish_dir="${repo_root}/artifacts/phase-0/${rid}/core"
 host_build_dir="${repo_root}/artifacts/phase-0/${rid}/native-host"
 
@@ -31,6 +32,8 @@ cmake \
   -B "${host_build_dir}" \
   -DCORE_PATH="${core_path}" \
   -DCORE_CYCLES="${cycles}" \
+  -DCORE_MAX_RSS_GROWTH_MIB="${max_rss_growth_mib}" \
+  -DCORE_RESULT_PATH="${host_build_dir}/phase-0-result.json" \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build "${host_build_dir}" --config Release
 ctest --test-dir "${host_build_dir}" --build-config Release --output-on-failure

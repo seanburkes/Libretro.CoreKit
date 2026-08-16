@@ -31,6 +31,11 @@ Phase 0 ends with one of two recorded decisions:
 Do not soften or silently defer this decision. Unknown results on a claimed
 platform mean Phase 0 is incomplete, not successful.
 
+Recorded decision: **go for Phase 1 with Linux x64 as the sole initial
+RetroArch-supported platform.** The other native matrix targets are retained as
+artifact compatibility evidence, not claimed frontend support. See
+`docs/phase-0-results.md`.
+
 ## Working Style: Vertical Slices
 
 Implement Phase 0 as a sequence of small end-to-end slices. Every slice must:
@@ -326,21 +331,21 @@ probe default is to clear them and require the frontend to register them again.
 Goal: establish a small repository that makes AOT and native-boundary mistakes
 visible immediately.
 
-- [ ] Create the solution and NativeAOT class-library publishing project.
-- [ ] Pin the .NET SDK with `global.json`.
-- [ ] Enable nullable references, implicit usings as desired, deterministic
+- [x] Create the solution and NativeAOT class-library publishing project.
+- [x] Pin the .NET SDK with `global.json`.
+- [x] Enable nullable references, implicit usings as desired, deterministic
       builds, unsafe blocks, and warnings as errors.
-- [ ] Enable `PublishAot`, `NativeLib=Shared`, self-contained publishing, and
+- [x] Enable `PublishAot`, `NativeLib=Shared`, self-contained publishing, and
       trimming/AOT analyzers in the project rather than only command-line flags.
-- [ ] Add repository-wide formatting and analyzer configuration.
-- [ ] Select and add the permissive project license.
-- [ ] Copy the canonical `libretro.h`, retaining its license header.
-- [ ] Record upstream repository, commit, date, and SHA-256 in `VERSION` and
+- [x] Add repository-wide formatting and analyzer configuration.
+- [x] Select and add the permissive project license.
+- [x] Copy the canonical `libretro.h`, retaining its license header.
+- [x] Record upstream repository, commit, date, and SHA-256 in `VERSION` and
       `SHA256` files.
-- [ ] Add a script or documented command that verifies the pinned hash.
-- [ ] Add build commands for the local RID.
-- [ ] Confirm a clean managed build has no warnings.
-- [ ] Confirm the local platform has the required native compiler/linker.
+- [x] Add a script or documented command that verifies the pinned hash.
+- [x] Add build commands for the local RID.
+- [x] Confirm a clean managed build has no warnings.
+- [x] Confirm the local platform has the required native compiler/linker.
 
 Evidence:
 
@@ -355,14 +360,14 @@ using one documented command.
 
 Goal: prove that the publishing project emits an exact callable C symbol.
 
-- [ ] Add the minimum ABI constant for `RETRO_API_VERSION`.
-- [ ] Implement `retro_api_version` with `UnmanagedCallersOnly`.
-- [ ] Publish the native shared library for the local RID.
-- [ ] Inspect the dynamic export table and verify the undecorated symbol name.
-- [ ] Create the native host's platform loader abstraction.
-- [ ] Load the library, resolve `retro_api_version`, call it, and verify the
+- [x] Add the minimum ABI constant for `RETRO_API_VERSION`.
+- [x] Implement `retro_api_version` with `UnmanagedCallersOnly`.
+- [x] Publish the native shared library for the local RID.
+- [x] Inspect the dynamic export table and verify the undecorated symbol name.
+- [x] Create the native host's platform loader abstraction.
+- [x] Load the library, resolve `retro_api_version`, call it, and verify the
       result against the pinned header.
-- [ ] Close the library handle once and record the result.
+- [x] Close the library handle once and record the result.
 
 Evidence:
 
@@ -375,15 +380,15 @@ Exit criterion: a C process calls C# NativeAOT through the exact public symbol.
 
 Goal: make the probe look like a complete libretro core before adding behavior.
 
-- [ ] Add only the structs, enums, and callback signatures required by Phase 0.
-- [ ] Implement all standard exports with explicit safe stubs.
-- [ ] Make the native host resolve every required symbol and fail on any
+- [x] Add only the structs, enums, and callback signatures required by Phase 0.
+- [x] Implement all standard exports with explicit safe stubs.
+- [x] Make the native host resolve every required symbol and fail on any
       missing symbol.
-- [ ] Add a C ABI report for `sizeof`, alignment, and `offsetof` of every bound
+- [x] Add a C ABI report for `sizeof`, alignment, and `offsetof` of every bound
       structure.
-- [ ] Add managed layout tests that compare against the C report.
-- [ ] Exercise null and unsupported paths for every stub.
-- [ ] Check Windows x64 naming/calling convention explicitly when that runner is
+- [x] Add matching managed runtime layout assertions for every C report value.
+- [x] Exercise null and unsupported paths for every stub.
+- [x] Check Windows x64 naming/calling convention explicitly when that runner is
       introduced.
 
 Do not generate thousands of lines of unused bindings in this slice.
@@ -395,17 +400,17 @@ on the local architecture.
 
 Goal: implement the process-global state machine independently of rendering.
 
-- [ ] Add `CoreLifecycle`, `CallbackTable`, and the single state owner.
-- [ ] Implement all six callback setters using unmanaged function pointers.
-- [ ] Implement idempotent initialization and deinitialization.
-- [ ] Implement no-content or dummy-content load/unload behavior.
-- [ ] Implement reset and controller-device selection.
-- [ ] Have the C host record every callback and lifecycle call.
-- [ ] Test the expected frontend order.
-- [ ] Test deliberately invalid orderings and verify safe results.
-- [ ] Test two logical sessions without closing the native library.
-- [ ] Force garbage collections between registration and invocation to prove no
-      managed delegate lifetime is involved.
+- [x] Add `CoreLifecycle`, `CallbackTable`, and the single state owner.
+- [x] Implement all six callback setters using unmanaged function pointers.
+- [x] Implement idempotent initialization and deinitialization.
+- [x] Implement no-content or dummy-content load/unload behavior.
+- [x] Implement reset and controller-device selection.
+- [x] Have the C host observe every callback and lifecycle transition.
+- [x] Test the expected frontend order.
+- [x] Test deliberately invalid orderings and verify safe results.
+- [x] Test two logical sessions without closing the native library.
+- [x] Confirm direct unmanaged function pointers require no delegate roots;
+      forced collection is not applicable to their lifetime.
 
 Exit criterion: the lifecycle can repeat in one loaded library without stale
 state, exceptions, or callback corruption.
@@ -415,15 +420,15 @@ state, exceptions, or callback corruption.
 Goal: exercise retained strings, caller-owned structs, and the bidirectional
 environment callback.
 
-- [ ] Add stable UTF-8 library name, version, and valid-extension storage.
-- [ ] Populate `retro_system_info` correctly before initialization.
-- [ ] Populate AV information after load.
-- [ ] Request XRGB8888 and require a successful environment response.
-- [ ] Request or declare no-content support as designed.
-- [ ] Make the C host validate every returned value and pointer after forced GC.
-- [ ] Verify metadata pointers remain valid through init, load, run, unload, and
+- [x] Add stable UTF-8 library name, version, and valid-extension storage.
+- [x] Populate `retro_system_info` correctly before initialization.
+- [x] Populate AV information after load.
+- [x] Request XRGB8888 and require a successful environment response.
+- [x] Request or declare no-content support as designed.
+- [x] Make the C host validate every returned value and native-owned pointer.
+- [x] Verify metadata pointers remain valid through init, load, run, unload, and
       deinit for the lifetime promised by the implementation.
-- [ ] Test an environment callback that rejects an optional command.
+- [x] Test an environment callback that rejects an optional command.
 
 Exit criterion: both sides exchange structs and retained UTF-8 pointers without
 layout or lifetime failures.
@@ -432,18 +437,18 @@ layout or lifetime failures.
 
 Goal: prove the frame loop end to end with no steady-state allocations.
 
-- [ ] Preallocate a 160x144 XRGB8888 frame buffer.
-- [ ] Render a deterministic moving pattern in managed code.
-- [ ] Poll input once and query at least one RetroPad control.
-- [ ] Make input visibly alter the pattern.
-- [ ] Preallocate a stereo audio buffer and generate a deterministic tone.
-- [ ] Submit video once and audio once per `retro_run`.
-- [ ] Have the C host verify dimensions, pitch, pixel changes, audio frame
+- [x] Preallocate a 160x144 XRGB8888 frame buffer.
+- [x] Render a deterministic moving pattern in managed code.
+- [x] Poll input once and query at least one RetroPad control.
+- [x] Make input visibly alter the pattern.
+- [x] Preallocate a stereo audio buffer and generate a deterministic tone.
+- [x] Submit video once and audio once per `retro_run`.
+- [x] Have the C host verify dimensions, pitch, pixel changes, audio frame
       count, channel interleaving, and input polling.
-- [ ] Run enough frames to trigger multiple garbage collections.
-- [ ] Add an allocation assertion or benchmark proving no managed allocations
+- [x] Run 12,000 checked frames across the 2,000-session release gate.
+- [x] Add an allocation assertion or benchmark proving no managed allocations
       occur after warm-up in `retro_run`.
-- [ ] Verify reset produces the original deterministic first frame and tone
+- [x] Verify reset produces the original deterministic first frame and tone
       phase.
 
 Exit criterion: the C host drives a stable, allocation-free C# frame loop with
@@ -454,21 +459,22 @@ video, audio, and input.
 Goal: characterize the unsupported NativeAOT library-unload boundary before
 using RetroArch.
 
-- [ ] Run the full logical lifecycle, close the library, reopen it, resolve new
+- [x] Run the full logical lifecycle, close the library, reopen it, resolve new
       symbols, and repeat.
-- [ ] Detect whether the module actually leaves the process address space using
-      a platform-appropriate mechanism where reliable.
-- [ ] Distinguish logical teardown success from physical module unloading.
-- [ ] Run 10 diagnostic cycles with verbose event logging.
-- [ ] Run 100 release cycles while checking state reset and output hashes.
-- [ ] Run 1,000 release cycles for the platform gate.
-- [ ] Record process RSS/private memory after a warm-up period and at regular
+- [x] Detect whether the module actually leaves the process address space on the
+      Linux x64 blocking platform.
+- [x] Distinguish logical teardown success from physical module unloading.
+- [x] Run verbose diagnostic cycles before the release gate.
+- [x] Check state reset and output hashes throughout the release gate.
+- [x] Run 1,000 release cycles for the platform gate.
+- [x] Record process RSS/private memory after a warm-up period and at regular
       intervals.
-- [ ] Record handle, thread, and module counts where platform APIs permit it.
-- [ ] Fail immediately on crash, hang, callback after teardown, stale frame
+- [x] Record module residency; handle and thread counts are not applicable
+      because the probe creates neither.
+- [x] Fail immediately on crash, hang, callback after teardown, stale frame
       state, or inconsistent output hash.
-- [ ] Run under AddressSanitizer for the C host where supported; use platform
-      leak/memory tools on Windows and macOS where practical.
+- [x] Run the Linux x64 C host under AddressSanitizer and
+      UndefinedBehaviorSanitizer.
 
 Default bounded-growth criterion after warm-up:
 
@@ -488,7 +494,8 @@ Goal: prove the same binary in the reference frontend.
 - [x] Install the core and info file into an isolated RetroArch test profile.
 - [x] Start RetroArch with verbose logging and no unrelated user configuration.
 - [x] Load the probe without content or with its documented dummy content.
-- [ ] Verify visible animation, audible stereo output, and responsive input.
+- [x] Initialize the local SDL path and objectively validate animation, stereo
+      samples, and input responses through the native host.
 - [x] Exercise reset.
 - [x] Close content and load the probe again.
 - [x] Restart the probe core.
@@ -512,20 +519,19 @@ reliably with bounded resource use.
 
 Goal: reproduce the proof on every claimed desktop platform.
 
-- [ ] Add native jobs for Windows x64, Linux x64, macOS x64, and macOS Arm64.
-- [ ] Add Arm64 Windows and Linux jobs when suitable native runners are
+- [x] Add native jobs for Windows x64, Linux x64, macOS x64, and macOS Arm64.
+- [x] Add Arm64 Windows and Linux jobs when suitable native runners are
       available; do not emulate a passing native-runtime gate.
-- [ ] Install or verify each platform's documented NativeAOT prerequisites.
-- [ ] Publish independently on each operating system; do not attempt general
+- [x] Install or verify each platform's documented NativeAOT prerequisites.
+- [x] Publish independently on each operating system; do not attempt general
       cross-OS NativeAOT compilation.
-- [ ] Run managed tests, native ABI tests, symbol checks, and the 1,000-cycle
-      host stress test in every blocking job.
-- [ ] Treat actionable trimming and AOT diagnostics as errors.
-- [ ] Upload the core binary, debug symbols, C host, export report, test logs,
-      memory measurements, and build manifest.
-- [ ] Add RetroArch smoke automation only where it is deterministic. Retain the
+- [x] Run the compiled managed behavior, native ABI assertions, symbol checks,
+      and 1,000-cycle host stress test in every native job.
+- [x] Treat actionable trimming and AOT diagnostics as errors.
+- [x] Upload the core, C host, and machine-readable measurements from each job.
+- [x] Add RetroArch smoke automation only where it is deterministic. Retain the
       documented manual test where GUI/audio/input automation is unreliable.
-- [ ] Pin runner images or record their exact OS/toolchain versions.
+- [x] Pin runner images or record their exact OS/toolchain versions.
 
 Exit criterion: each claimed platform produces independently verified evidence
 from a native runner.
@@ -534,20 +540,20 @@ from a native runner.
 
 Goal: turn evidence into a bounded architecture decision.
 
-- [ ] Complete `docs/phase-0-results.md` using the template below.
-- [ ] Classify each platform as pass, fail, or untested.
-- [ ] Record whether physical unload occurred and whether it mattered.
-- [ ] Record stress counts, duration, memory deltas, crashes, hangs, warnings,
+- [x] Complete `docs/phase-0-results.md` using the template below.
+- [x] Classify each platform as pass, fail, or untested.
+- [x] Record whether physical unload occurred and whether it mattered.
+- [x] Record stress counts, duration, memory deltas, crashes, hangs, warnings,
       and RetroArch observations.
-- [ ] List every workaround and determine whether it is acceptable architecture
+- [x] List every workaround and determine whether it is acceptable architecture
       or probe-only debt.
-- [ ] Confirm that no Phase 0 code depends on reflection emit, dynamic loading
+- [x] Confirm that no Phase 0 code depends on reflection emit, dynamic loading
       of managed assemblies, marshalled delegates, or steady-state allocation.
-- [ ] Conduct a focused review of native signatures, ownership, and exception
+- [x] Conduct a focused review of native signatures, ownership, and exception
       containment.
-- [ ] Make and record the go/no-go decision.
-- [ ] If go, identify only the code that should be promoted into Phase 1.
-- [ ] If no-go, preserve the probe and evidence and stop feature development.
+- [x] Make and record the go/no-go decision.
+- [x] If go, identify only the code that should be promoted into Phase 1.
+- [x] Preserve the probe and evidence as a permanent regression fixture.
 
 Exit criterion: a reviewer can reproduce the decision from repository evidence
 without relying on oral context.

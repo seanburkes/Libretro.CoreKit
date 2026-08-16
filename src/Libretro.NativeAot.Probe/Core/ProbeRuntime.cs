@@ -36,6 +36,12 @@ internal static unsafe class ProbeRuntime
 
     public static void Initialize()
     {
+        if (!AbiLayout.IsValid())
+        {
+            _failed = 1;
+            return;
+        }
+
         _core ??= new ProbeCore();
         _failed = 0;
     }
@@ -83,9 +89,16 @@ internal static unsafe class ProbeRuntime
 
     public static void Run()
     {
-        if (_failed == 0)
+        if (_failed != 0)
         {
-            _core?.Run(_callbacks);
+            return;
+        }
+
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        _core?.Run(_callbacks);
+        if (GC.GetAllocatedBytesForCurrentThread() != allocatedBefore)
+        {
+            _failed = 1;
         }
     }
 
