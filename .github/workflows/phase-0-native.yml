@@ -22,26 +22,32 @@ jobs:
             runner: ubuntu-22.04
             rid: linux-x64
             core: corekit_probe_libretro.so
+            sanitizers: ON
           - name: Linux Arm64
             runner: ubuntu-22.04-arm
             rid: linux-arm64
             core: corekit_probe_libretro.so
+            sanitizers: OFF
           - name: Windows x64
             runner: windows-2025
             rid: win-x64
             core: corekit_probe_libretro.dll
+            sanitizers: OFF
           - name: Windows Arm64
             runner: windows-11-arm
             rid: win-arm64
             core: corekit_probe_libretro.dll
+            sanitizers: OFF
           - name: macOS x64
             runner: macos-15-intel
             rid: osx-x64
             core: corekit_probe_libretro.dylib
+            sanitizers: OFF
           - name: macOS Arm64
             runner: macos-15
             rid: osx-arm64
             core: corekit_probe_libretro.dylib
+            sanitizers: OFF
 
     steps:
       - uses: actions/checkout@v7
@@ -69,12 +75,17 @@ jobs:
           -DCORE_PATH=${{ github.workspace }}/artifacts/phase-0/${{ matrix.rid }}/core/${{ matrix.core }}
           -DCORE_CYCLES=1000
           -DCORE_MAX_RSS_GROWTH_MIB=16
+          -DCORE_RESULT_PATH=${{ github.workspace }}/artifacts/phase-0/${{ matrix.rid }}/native-host/phase-0-result.json
+          -DCORE_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
           -DCMAKE_BUILD_TYPE=Release
 
       - name: Build native lifecycle host
         run: cmake --build artifacts/phase-0/${{ matrix.rid }}/native-host --config Release
 
       - name: Run native lifecycle stress test
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: >-
           ctest
           --test-dir artifacts/phase-0/${{ matrix.rid }}/native-host
@@ -85,7 +96,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: phase-0-${{ matrix.rid }}
-          path: artifacts/phase-0/${{ matrix.rid }}/core/${{ matrix.core }}
+          path: |
+            artifacts/phase-0/${{ matrix.rid }}/core/${{ matrix.core }}
+            artifacts/phase-0/${{ matrix.rid }}/native-host/phase-0-result.json
+            artifacts/phase-0/${{ matrix.rid }}/native-host/**/libretro_native_host*
           if-no-files-found: error
 
   retroarch-lifecycle:

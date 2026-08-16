@@ -1,97 +1,90 @@
 # Phase 0 Compatibility Results
 
-## Current decision
+## Decision
 
-**Linux x64 automated RetroArch gate: provisional go. Overall Phase 0: incomplete.**
+**Go for Phase 1 with Linux x64 as the only initial RetroArch-supported target.**
 
-The NativeAOT core works through the libretro ABI and an installed RetroArch,
-but ordinary NativeAOT unload/reload behavior is not acceptable. Linux is only
-provisionally viable when the shared library is marked `NODELETE`, keeping one
-runtime resident until the frontend exits.
+Linux x64 satisfies the Phase 0 native ABI, allocation, lifecycle, stress,
+memory, and real-frontend gates. The other five native targets publish and pass
+the independent C host, but they are build-compatibility evidence only. They
+are not claimed as RetroArch-supported until the same frontend lifecycle runs
+there.
 
-The native host passes 1,000 loader cycles under a 16 MiB RSS-growth ceiling on
-Linux, Windows, and macOS across x64 and Arm64. The Linux x64 RetroArch gate now
-also passes 50 managed-to-native core switches, including reset, close, unload,
-reload, and normal frontend exit. Do not extract a reusable framework yet: the
-equivalent RetroArch tests on Windows and macOS remain outstanding.
+| Target | NativeAOT publish | C host, 1,000 cycles | RetroArch lifecycle | Phase 0 classification |
+| --- | --- | --- | --- | --- |
+| Linux x64 | Pass | Pass | Pass | Supported Phase 1 baseline |
+| Linux Arm64 | Pass | Pass | Untested | Native artifact evidence only |
+| Windows x64 | Pass | Pass | Untested | Native artifact evidence only |
+| Windows Arm64 | Pass | Pass | Untested | Native artifact evidence only |
+| macOS x64 | Pass | Pass | Untested | Native artifact evidence only |
+| macOS Arm64 | Pass | Pass | Untested | Native artifact evidence only |
+
+This deliberately narrow claim follows the playbook: an untested platform is
+not supported merely because it produced a DLL or dylib.
 
 ## Probe scope
 
-The Stage 0A artifact provides:
+The probe provides:
 
 - all 25 mandatory `retro_*` exports with explicit Cdecl entry points;
-- stable UTF-8 system metadata available before `retro_init`;
+- matching managed and C assertions for every Phase 0 struct size and offset;
+- stable process-lifetime UTF-8 metadata available before `retro_init`;
 - explicit initialization, load, unload, deinitialization, and reinitialization;
 - no-content and XRGB8888 environment negotiation;
-- a deterministic 160x144 software frame;
-- 800 interleaved stereo frames per 60 Hz video frame at 48 kHz;
-- RetroPad polling on every `retro_run`;
-- safe unsupported serialization, subsystem, cheat, and memory behavior;
-- exception containment at every fallible native export; and
-- a C11 host compiled against the pinned canonical `libretro.h`.
+- deterministic 160x144 video and 48 kHz stereo audio;
+- RetroPad polling and input-dependent output on every frame;
+- a steady-state managed-allocation tripwire around `retro_run`;
+- safe unsupported serialization, subsystem, cheat, and memory behavior; and
+- machine-readable C-host results with output hashes and memory measurements.
 
 Callbacks are cleared by `retro_deinit`. A frontend must register them again
 before starting another managed session.
 
 ## Test environment
 
-Recorded on 2026-08-15:
+Recorded on 2026-08-15 and 2026-08-16:
 
 | Component | Version |
 | --- | --- |
-| Operating system | Fedora Linux 44, x86-64, kernel 7.1.8 |
+| Local operating system | Fedora Linux 44, x86-64, kernel 7.1.8 |
 | .NET SDK | 10.0.110 |
 | .NET runtime / NativeAOT toolchain | 10.0.10 |
-| C compiler | GCC 16.1.1 |
+| Local C compiler | GCC 16.1.1 |
 | CMake | 4.3.0 |
 | RetroArch manual smoke | Flatpak 1.22.2, Git 69a4f0ea1e |
 | RetroArch lifecycle gate | source build 1.22.2, Git 7bc72e87359f948f856701cd744dfc2ef8efebaa |
-| `libretro.h` | `libretro-common` commit `879c8d507b0b52e77e27d759239c2b5df1e26dfd` |
-| Header SHA-256 | `951c20c2e74b4e1cdfac69b702acb499902e8988e86de973d0922e23f50270ca` |
+| `libretro.h` | `libretro-common` commit 879c8d507b0b52e77e27d759239c2b5df1e26dfd |
+| Header SHA-256 | 951c20c2e74b4e1cdfac69b702acb499902e8988e86de973d0922e23f50270ca |
 
-The cross-platform matrix uses `ubuntu-22.04`, `ubuntu-22.04-arm`,
-`windows-2025`, `windows-11-arm`, `macos-15-intel`, and `macos-15` GitHub-hosted
-runners.
+The native matrix uses `ubuntu-22.04`, `ubuntu-22.04-arm`, `windows-2025`,
+`windows-11-arm`, `macos-15-intel`, and `macos-15` GitHub-hosted runners.
 
-## Results
+## Independent native-host evidence
 
-`./eng/run-phase-0a.sh` completed with zero managed build warnings, compiled the
-C host with warnings as errors, resolved every required export, and passed 25
-load/unload cycles with two complete managed sessions per load.
+The C11 host compiles against the pinned canonical header with warnings as
+errors. It independently checks ABI layouts, resolves all exports, drives valid
+and invalid lifecycle orders, validates callback arguments and counts, hashes
+video and audio, proves reset returns both hashes to their first-frame values,
+and fails if `retro_run` allocates managed memory after initialization.
 
-The unmodified NativeAOT shared library exposed linear reload growth:
+The final local Linux x64 sanitizer run completed 1,000 loader cycles and 2,000
+managed sessions:
 
 ```text
+ABI: pointer=8, bool=1, system_info=32/8, geometry=20/4,
+     timing=16/8, av_info=40/8, game_info=32/8
 PASS: 1000 load/unload cycles, 2000 managed sessions
-RSS after first session: 3.80 MiB; final: 354.62 MiB; growth: 350.82 MiB
+RSS after first session: 11.50 MiB; final: 13.29 MiB; growth: 1.79 MiB
+video_first_hash: 83595f10c7712625
+audio_first_hash: d9cbd2c2bc6ada79
 ```
 
-Keeping one library loaded while running the same number of managed sessions
-did not reproduce the growth:
+AddressSanitizer and UndefinedBehaviorSanitizer reported no native-host error.
+CI runs the same 1,000-cycle assertion on all six native targets and enables the
+sanitizers on Linux x64. Each job uploads the core, native host, and JSON result.
 
-```text
-PASS: 1 load/unload cycles, 2000 managed sessions
-RSS after first session: 3.68 MiB; final: 2.76 MiB; growth: -0.93 MiB
-```
-
-The Linux build now passes `-z nodelete` to the ELF linker. `readelf` confirms
-the `NODELETE` dynamic flag, and the repeated loader test becomes bounded:
-
-```text
-PASS: 1000 load/unload cycles, 2000 managed sessions
-RSS after first session: 3.55 MiB; final: 4.32 MiB; growth: 0.76 MiB
-```
-
-RetroArch loaded the core, accepted no-content and XRGB8888 negotiation, and
-reported the expected API version, 160x144 geometry, 60 Hz frame rate, and 48
-kHz audio rate. The automated gate below covers normal close/restart and core
-switching.
-
-### Cross-platform native matrix
-
-[GitHub Actions run 31901687302](https://github.com/seanburkes/Libretro.CoreKit/actions/runs/31901687302)
-enforced a 16 MiB RSS-growth ceiling over 1,000 load/unload cycles and 2,000
-managed sessions on every target:
+The first complete cross-platform run was
+[GitHub Actions 31901687302](https://github.com/seanburkes/Libretro.CoreKit/actions/runs/31901687302):
 
 | Target | RSS after first session | Final RSS | Growth |
 | --- | ---: | ---: | ---: |
@@ -102,75 +95,81 @@ managed sessions on every target:
 | macOS x64 | 3.69 MiB | 4.44 MiB | 0.75 MiB |
 | macOS Arm64 | 6.86 MiB | 7.67 MiB | 0.81 MiB |
 
-Windows and macOS required no additional keep-resident change for this probe.
-That is measured compatibility with the recorded toolchains, not a claim that
-NativeAOT library unloading is supported.
+An unmodified Linux NativeAOT shared library retained about 351 MiB over 1,000
+close/reopen cycles. Linux therefore links the probe with `-z nodelete`.
+Logical teardown resets managed state and callbacks, while one NativeAOT
+runtime stays mapped until process exit. With `NODELETE`, growth remains below
+the 16 MiB gate. This is an accepted architecture constraint, not physical
+library unloading disguised with optimistic wording.
 
-### Linux x64 RetroArch lifecycle
+Windows and macOS required no keep-resident linker change in the native host.
+The loader calls returned successfully, but physical removal was not promoted
+to a support claim without frontend evidence.
 
-`./eng/run-retroarch-phase-0.sh` built the pinned RetroArch revision, launched
-it with an isolated profile, and switched between the NativeAOT probe and an
-ABI-equivalent conventional C core 50 times. Every cycle ran and atomically
-unloaded the managed core, then ran and atomically unloaded the control core.
-Content closure and restart are checked once as a separate transition so the
-test does not overlap RetroArch's pending close/reload state. RetroArch exited
-normally through its `QUIT` command.
+## Linux x64 RetroArch evidence
 
-Before the switch loop, the gate attempts to load a missing content path and
-confirms that RetroArch returns to contentless state. During the first managed
-session it issues save-state and load-state commands, confirms RetroArch reports
-that the core does not support save states, and then completes normal teardown.
+[GitHub Actions 31915782906](https://github.com/seanburkes/Libretro.CoreKit/actions/runs/31915782906)
+passed all six native jobs and the Linux x64 RetroArch job. The frontend gate:
 
-The pinned source revision is newer than the installed stable build because the
-stable build predates the lifecycle command interface used by this automation.
-AddressSanitizer found that this revision's UDP poll loop continued using its
-command object after `LOAD_CONTENT` or `START_CORE` synchronously rebuilt the
-input subsystem and freed that object. The test build applies a pinned one-line
-compatibility patch that returns after processing one datagram. A 15-cycle
-managed/control run then completed under AddressSanitizer without a memory
-error. This changes only the experimental command transport, not libretro core
-loading or teardown. The result remains provisional until the fix is available
-in a stable frontend baseline or the workflow moves to equivalent stable UI
-automation.
+- loads and resets the NativeAOT probe without content;
+- checks recovery from missing content and unsupported save/load state;
+- closes and restarts content;
+- switches between the probe and a conventional C control core 50 times;
+- verifies the managed module remains deliberately mapped;
+- stays below 16 MiB retained RSS growth; and
+- exits normally through RetroArch's quit path.
 
 ```text
 managed core mapped after unload: True
-RSS after warm-up: 14.66 MiB; peak: 17.74 MiB; growth: 3.08 MiB
+RSS after warm-up: 17.47 MiB; peak: 20.53 MiB; growth: 3.06 MiB
 PASS: RetroArch load/reset/unload/switch/quit lifecycle
 ```
 
-An exploratory replay that explicitly combined `VIDEO_REINIT`,
-`AUDIO_REINIT`, and `DRIVERS_REINIT` with every core load eventually crashed
-RetroArch. An ABI-equivalent conventional C core reproduced the failure, while
-75 driver reinits on RetroArch's dummy core passed. The explicit reinit replay
-is therefore tracked as a frontend/driver stress issue and is not used to judge
-NativeAOT. The blocking gate exercises ordinary core workflows instead.
+A local SDL-driver run also completed the same ordinary load path, while the C
+host objectively validates the video, audio, and input data. Human-visible and
+human-audible confirmation is useful smoke testing, but it is not pretending to
+be a reproducible CI assertion.
 
-The first Xvfb CI attempt segfaulted after 39 complete switch cycles while the
-conventional C control core was active. A later headless run aborted while the
-same control core was active. The command-poller use-after-free explains why
-the active core at detection was inconsistent: the frontend heap had already
-been corrupted by an earlier lifecycle datagram. CI uses RetroArch's null
-video, audio, and input drivers to isolate core loading from virtual SDL; the
-SDL configuration remains the local video/audio smoke gate.
+### Frontend harness defect and workaround
 
-## Interpretation
+AddressSanitizer identified a use-after-free in the pinned RetroArch command
+poller. `LOAD_CONTENT` and `START_CORE` synchronously rebuild input, freeing the
+UDP command object while its poll loop still uses it. That explains the earlier
+nondeterministic crashes with either the managed probe or the conventional C
+control core.
 
-The probe separates two concerns cleanly:
+The repository applies
+`eng/retroarch/0001-netcmd-return-after-reinit.patch`, a one-line test-harness
+fix that returns after processing a lifecycle datagram. It changes the
+experimental command transport, not the libretro ABI or core teardown. Fifteen
+managed/control cycles then passed under AddressSanitizer, and the production
+50-cycle gate passed in CI. This patch remains harness debt until an equivalent
+stable frontend automation path is available.
 
-1. The C# ABI, callbacks, frame loop, and explicit managed teardown work.
-2. Physically unloading and recreating the NativeAOT runtime does not work
-   within a bounded-memory libretro lifecycle on this Linux environment.
+## Accepted limitations
 
-The Linux workaround changes `dlclose` into logical teardown: managed session
-resources and callback pointers are cleared, but the code and NativeAOT runtime
-stay mapped. The real RetroArch switch test confirms that this behavior remains
-inside the Phase 0 memory bound on Linux x64.
+- NativeAOT shared-library unloading is unsupported; Linux intentionally uses
+  logical teardown plus a process-lifetime resident runtime.
+- The initial product claim is Linux x64 only.
+- Windows, macOS, and Arm64 require equivalent RetroArch gates before support.
+- The pinned RetroArch automation build carries the narrow command-poller fix.
+- This is a contentless probe, not yet an emulator adapter or reusable API.
 
-## Next gate
+None of these limits blocks a Linux x64-first Phase 1. Expanding the platform
+claim without running the frontend there would block it, mostly because wishful
+thinking is not a compatibility test.
 
-Stage 0B should stay focused on lifecycle compatibility:
+## Phase 1 promotion set
 
-1. Repeat the RetroArch lifecycle on Windows x64 and macOS Arm64/x64.
-2. Confirm normal frontend exit and process cleanup on each remaining platform.
-3. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.
+Promote only the proven pieces:
+
+1. ABI constants, blittable structs, and unmanaged callback signatures.
+2. Thin exception-contained exports and the explicit lifecycle owner.
+3. Preallocated synchronous video/audio buffers and direct function pointers.
+4. The independent native host, output hashes, allocation guard, and CI gates.
+
+Keep the probe rendering/tone behavior as a regression fixture. Do not promote
+the RetroArch command patch into product code.
+
+Decision date: 2026-08-16. Repository-owner acceptance is represented by the
+requested squash-merge of the Phase 0 decision pull request.

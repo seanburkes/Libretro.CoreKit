@@ -10,17 +10,16 @@ cross-platform publishing for Windows, Linux, and macOS. The project will also
 provide ABI tests against a small native host and progressively validate the
 design with a software sample, CHIP-8, and the Craterboy Game Boy emulator.
 
-The project is currently in Phase 0: proving that a NativeAOT shared library can
-survive the complete RetroArch load, run, unload, reload, core-switch, and exit
-lifecycle reliably. The Stage 0A native probe now passes 1,000 loader cycles on
-Linux, Windows, and macOS across x64 and Arm64. Linux deliberately marks the
-ELF library `NODELETE` because ordinary NativeAOT unloading leaked runtime state
-on every reload. No production compatibility claim will be made until the
-equivalent RetroArch lifecycle gates pass on every supported platform.
+Phase 0 is complete with a go decision for a Linux x64-first Phase 1. The native
+probe passes 1,000 loader cycles on Linux, Windows, and macOS across x64 and
+Arm64, but only Linux x64 has passed the real RetroArch lifecycle gate and is
+therefore claimed as the initial supported target. Linux deliberately marks the
+ELF library `NODELETE` because ordinary NativeAOT unloading retained runtime
+state on every reload.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
-the detailed compatibility-gate playbook. Current measurements and the
-provisional decision are in [docs/phase-0-results.md](docs/phase-0-results.md).
+the detailed compatibility-gate playbook. Measurements, limitations, and the
+decision are in [docs/phase-0-results.md](docs/phase-0-results.md).
 
 ## Run the Linux Stage 0A probe
 
