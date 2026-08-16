@@ -17,9 +17,15 @@ therefore claimed as the initial supported target. Linux deliberately marks the
 ELF library `NODELETE` because ordinary NativeAOT unloading retained runtime
 state on every reload.
 
+Phase 1 is now extracting the proven ABI into a reusable `Libretro.Core`
+assembly. The first slice contains the mandatory system/game information
+layouts and typed wrappers for no-content and XRGB8888 negotiation; native
+exports intentionally remain in each concrete NativeAOT publishing project.
+
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
-the detailed compatibility-gate playbook. Measurements, limitations, and the
-decision are in [docs/phase-0-results.md](docs/phase-0-results.md).
+the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) tracks the active ABI
+work. Measurements, limitations, and the Phase 0 decision are in
+[docs/phase-0-results.md](docs/phase-0-results.md).
 
 ## Run the Linux Stage 0A probe
 

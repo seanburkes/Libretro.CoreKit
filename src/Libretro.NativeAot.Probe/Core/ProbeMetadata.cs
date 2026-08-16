@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using Libretro.NativeAot.Probe.Abi;
+using Libretro.Core.Abi;
 
 namespace Libretro.NativeAot.Probe.Core;
 

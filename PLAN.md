@@ -11,18 +11,19 @@ installed .NET runtime. It preserves the managed Craterboy implementation and
 matches the way desktop RetroArch loads cores better than the available
 alternatives.
 
-This decision is conditional on the Phase 0 unload/reload experiment. Microsoft
-does not support unloading NativeAOT shared libraries with `FreeLibrary` or
-`dlclose`, while RetroArch normally unloads cores. The project should not claim
-production-quality RetroArch compatibility until repeated load, unload, reload,
-core-switch, and process-exit tests pass on every supported desktop platform.
-
-If the Phase 0 gate fails, stop and reassess. Do not build the full framework on
-an assumption that the lifetime mismatch can be ignored.
+Phase 0 completed with a go decision for Linux x64. Linux deliberately keeps the
+NativeAOT module resident and performs logical teardown because Microsoft does
+not support unloading NativeAOT shared libraries. Windows, macOS, and Arm64
+native artifacts pass the independent C host but are not RetroArch-supported
+until their equivalent frontend lifecycle gates pass.
 
 ## Scope
 
-The initial supported targets are:
+The current supported target is:
+
+- Linux x64 with the documented process-lifetime resident module.
+
+The intended expansion targets are:
 
 - Windows x64 and Arm64.
 - Linux x64 and Arm64 using a documented minimum glibc baseline.
@@ -203,6 +204,8 @@ Gate result:
   implementation strategy.
 
 ## Phase 1: Canonical ABI Layer
+
+Follow the active slice checklist and decisions in [PHASE-1.md](PHASE-1.md).
 
 - Pin a current canonical `libretro.h` from `libretro-common`.
 - Hand-author the mandatory structs, enums, constants, callbacks, and exports.
@@ -393,7 +396,7 @@ will work on older distributions.
 
 ### Experimental
 
-- Phase 0 passes on at least Windows x64, Linux x64, and one macOS architecture.
+- Phase 0 passes on Linux x64, the only initially claimed frontend platform.
 - The C ABI host validates every mandatory export and bound layout.
 - The software sample runs in RetroArch with video, audio, and input.
 
@@ -471,15 +474,10 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Create a clean repository and choose its name and permissive license.
-2. Pin the current canonical `libretro.h` and record its commit and checksum.
-3. Implement the minimal mandatory export façade with no reusable abstraction.
-4. Add the C lifecycle host.
-5. Publish the first NativeAOT shared libraries on native CI runners.
-6. Execute the unload/reload/core-switch gate in real RetroArch.
-7. Record a written go/no-go decision with logs and memory observations.
-8. Only after a successful gate, extract the ABI and host layers and build the
-   software sample.
-9. Add CHIP-8 and use it to stabilize the reusable API.
-10. Prepare Craterboy's stereo, serialization, and stable-memory APIs before
-    creating `Craterboy.Libretro`.
+1. Complete the incremental environment wrappers in [PHASE-1.md](PHASE-1.md).
+2. Keep every addition checked by the independent C host and native matrix.
+3. Define the reusable host only after the ABI ownership rules are proven.
+4. Build the software sample, then CHIP-8, before freezing a package API.
+5. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
+6. Prepare Craterboy's stereo, serialization, and stable-memory APIs before
+   creating `Craterboy.Libretro`.

@@ -72,6 +72,7 @@ struct observations
    uint64_t second_audio_hash;
    uint64_t no_input_reset_audio_hash;
    uint64_t last_audio_hash;
+   bool reject_pixel_format;
    bool provide_input;
    bool saw_nonzero_audio;
    bool callback_error;
@@ -113,7 +114,7 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
       if (data == NULL || *(const enum retro_pixel_format *)data != RETRO_PIXEL_FORMAT_XRGB8888)
          observations.callback_error = true;
       observations.pixel_format_calls++;
-      return true;
+      return !observations.reject_pixel_format;
    }
 
    return false;
@@ -403,8 +404,12 @@ static bool run_session(const struct core_api *api)
       return false;
 
    api->retro_init();
-   if (!check(api->retro_load_game(NULL), "contentless load") ||
-       !check(observations.pixel_format_calls == 1, "XRGB8888 negotiation"))
+   observations.reject_pixel_format = true;
+   if (!check(!api->retro_load_game(NULL), "rejected XRGB8888 negotiation"))
+      return false;
+   observations.reject_pixel_format = false;
+   if (!check(api->retro_load_game(NULL), "contentless load after environment rejection") ||
+       !check(observations.pixel_format_calls == 2, "XRGB8888 negotiation and retry"))
       return false;
 
    memset(&av_info, 0, sizeof(av_info));

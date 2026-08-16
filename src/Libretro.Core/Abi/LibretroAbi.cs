@@ -1,8 +1,8 @@
-namespace Libretro.NativeAot.Probe.Abi;
+namespace Libretro.Core.Abi;
 
-internal static unsafe class AbiLayout
+public static unsafe class LibretroAbi
 {
-    public static bool IsValid()
+    public static bool IsSupportedLayout()
     {
         if (sizeof(nuint) != 8)
         {

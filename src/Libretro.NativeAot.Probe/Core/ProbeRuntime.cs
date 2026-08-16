@@ -1,4 +1,5 @@
-using Libretro.NativeAot.Probe.Abi;
+using Libretro.Core.Abi;
+using Libretro.Core.Environment;
 
 namespace Libretro.NativeAot.Probe.Core;
 
@@ -10,13 +11,8 @@ internal static unsafe class ProbeRuntime
 
     public static void SetEnvironment(delegate* unmanaged[Cdecl]<uint, void*, byte> callback)
     {
-        _callbacks.Environment = callback;
-
-        if (callback != null)
-        {
-            byte supportsNoGame = 1;
-            _ = callback(LibretroConstants.EnvironmentSetSupportNoGame, &supportsNoGame);
-        }
+        _callbacks.Environment = new RetroEnvironment(callback);
+        _ = _callbacks.Environment.SetSupportNoGame(true);
     }
 
     public static void SetVideoRefresh(delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void> callback) =>
@@ -36,7 +32,7 @@ internal static unsafe class ProbeRuntime
 
     public static void Initialize()
     {
-        if (!AbiLayout.IsValid())
+        if (!LibretroAbi.IsSupportedLayout())
         {
             _failed = 1;
             return;
@@ -69,13 +65,12 @@ internal static unsafe class ProbeRuntime
 
     public static byte LoadGame()
     {
-        if (_core is null || _callbacks.Environment == null || _failed != 0)
+        if (_core is null || !_callbacks.Environment.IsAvailable || _failed != 0)
         {
             return 0;
         }
 
-        var pixelFormat = LibretroConstants.PixelFormatXrgb8888;
-        if (_callbacks.Environment(LibretroConstants.EnvironmentSetPixelFormat, &pixelFormat) == 0)
+        if (!_callbacks.Environment.SetPixelFormat(RetroPixelFormat.Xrgb8888))
         {
             return 0;
         }

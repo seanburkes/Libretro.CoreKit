@@ -1,8 +1,10 @@
+using Libretro.Core.Environment;
+
 namespace Libretro.NativeAot.Probe.Core;
 
 internal unsafe struct CallbackTable
 {
-    public delegate* unmanaged[Cdecl]<uint, void*, byte> Environment;
+    public RetroEnvironment Environment;
     public delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void> VideoRefresh;
     public delegate* unmanaged[Cdecl]<short, short, void> AudioSample;
     public delegate* unmanaged[Cdecl]<short*, nuint, nuint> AudioSampleBatch;

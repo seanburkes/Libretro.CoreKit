@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Libretro.NativeAot.Probe.Abi;
+using Libretro.Core.Abi;
 using Libretro.NativeAot.Probe.Core;
 
 namespace Libretro.NativeAot.Probe.Native;
@@ -160,7 +160,7 @@ internal static unsafe class LibretroExports
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_get_region", CallConvs = [typeof(CallConvCdecl)])]
-    public static uint GetRegion() => LibretroConstants.RegionNtsc;
+    public static uint GetRegion() => (uint)RetroRegion.Ntsc;
 
     [UnmanagedCallersOnly(EntryPoint = "retro_get_memory_data", CallConvs = [typeof(CallConvCdecl)])]
     public static void* GetMemoryData(uint id)
