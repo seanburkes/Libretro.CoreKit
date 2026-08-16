@@ -1,0 +1,9 @@
+diff --git a/command.c b/command.c
+index e97ebe8e3b..3692b7f5cb 100644
+--- a/command.c
++++ b/command.c
+@@ -241,2 +241,4 @@ static void command_network_poll(command_t *handle)
+       command_parse_msg(handle, buf);
++      /* A command may reinitialize input and replace this command handle. */
++      return;
+    }

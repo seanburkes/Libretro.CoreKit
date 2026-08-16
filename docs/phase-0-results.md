@@ -84,8 +84,8 @@ RSS after first session: 3.55 MiB; final: 4.32 MiB; growth: 0.76 MiB
 
 RetroArch loaded the core, accepted no-content and XRGB8888 negotiation, and
 reported the expected API version, 160x144 geometry, 60 Hz frame rate, and 48
-kHz audio rate. Automated normal close/restart and core-switch testing remains
-outstanding.
+kHz audio rate. The automated gate below covers normal close/restart and core
+switching.
 
 ### Cross-platform native matrix
 
@@ -110,20 +110,33 @@ NativeAOT library unloading is supported.
 
 `./eng/run-retroarch-phase-0.sh` built the pinned RetroArch revision, launched
 it with an isolated profile, and switched between the NativeAOT probe and an
-ABI-equivalent conventional C core 50 times. Every cycle ran, reset, closed,
-and unloaded the managed core, then ran, closed, and unloaded the control core.
-RetroArch exited normally through its `QUIT` command.
+ABI-equivalent conventional C core 50 times. Every cycle ran and atomically
+unloaded the managed core, then ran and atomically unloaded the control core.
+Content closure and restart are checked once as a separate transition so the
+test does not overlap RetroArch's pending close/reload state. RetroArch exited
+normally through its `QUIT` command.
+
+Before the switch loop, the gate attempts to load a missing content path and
+confirms that RetroArch returns to contentless state. During the first managed
+session it issues save-state and load-state commands, confirms RetroArch reports
+that the core does not support save states, and then completes normal teardown.
 
 The pinned source revision is newer than the installed stable build because the
 stable build predates the lifecycle command interface used by this automation.
-The result remains provisional until the same workflow is exercised against a
-stable baseline containing those commands, or through equivalent stable UI
+AddressSanitizer found that this revision's UDP poll loop continued using its
+command object after `LOAD_CONTENT` or `START_CORE` synchronously rebuilt the
+input subsystem and freed that object. The test build applies a pinned one-line
+compatibility patch that returns after processing one datagram. A 15-cycle
+managed/control run then completed under AddressSanitizer without a memory
+error. This changes only the experimental command transport, not libretro core
+loading or teardown. The result remains provisional until the fix is available
+in a stable frontend baseline or the workflow moves to equivalent stable UI
 automation.
 
 ```text
 managed core mapped after unload: True
-RSS after warm-up: 92.22 MiB; peak: 100.54 MiB; growth: 8.32 MiB
-PASS: RetroArch load/reset/close/unload/switch/quit lifecycle
+RSS after warm-up: 14.66 MiB; peak: 17.74 MiB; growth: 3.08 MiB
+PASS: RetroArch load/reset/unload/switch/quit lifecycle
 ```
 
 An exploratory replay that explicitly combined `VIDEO_REINIT`,
@@ -133,12 +146,13 @@ RetroArch. An ABI-equivalent conventional C core reproduced the failure, while
 is therefore tracked as a frontend/driver stress issue and is not used to judge
 NativeAOT. The blocking gate exercises ordinary core workflows instead.
 
-The first Xvfb CI attempt also segfaulted after 39 complete switch cycles while
-the conventional C control core was active. CI therefore runs the same frontend
-lifecycle with RetroArch's null video, audio, and input drivers, isolating core
-loading from the virtual SDL display stack. The SDL configuration remains the
-local video/audio smoke gate; neither control-core crash is attributed to
-NativeAOT.
+The first Xvfb CI attempt segfaulted after 39 complete switch cycles while the
+conventional C control core was active. A later headless run aborted while the
+same control core was active. The command-poller use-after-free explains why
+the active core at detection was inconsistent: the frontend heap had already
+been corrupted by an earlier lifecycle datagram. CI uses RetroArch's null
+video, audio, and input drivers to isolate core loading from virtual SDL; the
+SDL configuration remains the local video/audio smoke gate.
 
 ## Interpretation
 
@@ -159,5 +173,4 @@ Stage 0B should stay focused on lifecycle compatibility:
 
 1. Repeat the RetroArch lifecycle on Windows x64 and macOS Arm64/x64.
 2. Confirm normal frontend exit and process cleanup on each remaining platform.
-3. Run the rejected-content and unsupported-operation recovery cases.
-4. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.
+3. Record a final Phase 0 go/no-go decision before creating `Libretro.Core`.

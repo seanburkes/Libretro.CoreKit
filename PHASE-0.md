@@ -496,7 +496,7 @@ Goal: prove the same binary in the reference frontend.
 - [x] Repeat the switch sequence 50 times manually or through stable UI/CLI
       automation.
 - [x] Quit RetroArch normally after the probe has run.
-- [ ] Repeat after a failed content load and after an unsupported operation.
+- [x] Repeat after a failed content load and after an unsupported operation.
 - [x] Check RetroArch logs and OS crash reports after every scenario.
 - [x] Record whether the native module remains resident after core closure.
 - [x] Measure process memory across the switch sequence.
