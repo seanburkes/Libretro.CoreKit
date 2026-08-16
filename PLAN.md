@@ -205,7 +205,10 @@ Gate result:
 
 ## Phase 1: Canonical ABI Layer
 
-Follow the active slice checklist and decisions in [PHASE-1.md](PHASE-1.md).
+**Status:** Complete. See [PHASE-1.md](PHASE-1.md) for the implemented surface,
+ownership rules, deliberate limits, and validation evidence.
+
+See the completed checklist and decisions in [PHASE-1.md](PHASE-1.md).
 
 - Pin a current canonical `libretro.h` from `libretro-common`.
 - Hand-author the mandatory structs, enums, constants, callbacks, and exports.

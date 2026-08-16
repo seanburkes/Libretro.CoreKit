@@ -5,14 +5,18 @@ namespace Libretro.NativeAot.Probe.Core;
 
 internal static unsafe class ProbeRuntime
 {
-    private static CallbackTable _callbacks;
+    private static RetroFrontendCallbacks _callbacks;
     private static ProbeCore? _core;
     private static int _failed;
+    private static bool _supportsInputBitmasks;
+    private static uint _messageInterfaceVersion;
 
     public static void SetEnvironment(delegate* unmanaged[Cdecl]<uint, void*, byte> callback)
     {
-        _callbacks.Environment = new RetroEnvironment(callback);
-        _ = _callbacks.Environment.SetSupportNoGame(true);
+        _callbacks.Environment = callback;
+        var environment = new RetroEnvironment(callback);
+        _ = environment.SetSupportNoGame(true);
+        _ = environment.SetCoreOptionsV2(ProbeEnvironmentData.CoreOptions);
     }
 
     public static void SetVideoRefresh(delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void> callback) =>
@@ -40,6 +44,16 @@ internal static unsafe class ProbeRuntime
 
         _core ??= new ProbeCore();
         _failed = 0;
+
+        var environment = new RetroEnvironment(_callbacks.Environment);
+        _ = environment.SetInputDescriptors(ProbeEnvironmentData.InputDescriptors);
+        _supportsInputBitmasks = environment.SupportsInputBitmasks();
+        _ = environment.GetSystemDirectory(out _);
+        _ = environment.GetSaveDirectory(out _);
+        _ = environment.GetContentDirectory(out _);
+        _ = environment.GetCoreAssetsDirectory(out _);
+        _ = environment.GetLanguage(out _);
+        _ = environment.GetMessageInterfaceVersion(out _messageInterfaceVersion);
     }
 
     public static void Deinitialize()
@@ -48,6 +62,8 @@ internal static unsafe class ProbeRuntime
         _core = null;
         _callbacks = default;
         _failed = 0;
+        _supportsInputBitmasks = false;
+        _messageInterfaceVersion = 0;
     }
 
     public static void GetSystemInfo(RetroSystemInfo* info) => ProbeMetadata.Fill(info);
@@ -65,17 +81,24 @@ internal static unsafe class ProbeRuntime
 
     public static byte LoadGame()
     {
-        if (_core is null || !_callbacks.Environment.IsAvailable || _failed != 0)
+        var environment = new RetroEnvironment(_callbacks.Environment);
+        if (_core is null || !environment.IsAvailable || _failed != 0)
         {
             return 0;
         }
 
-        if (!_callbacks.Environment.SetPixelFormat(RetroPixelFormat.Xrgb8888))
+        if (!environment.SetPixelFormat(RetroPixelFormat.Xrgb8888))
         {
             return 0;
         }
 
-        return _core.LoadContent() ? (byte)1 : (byte)0;
+        if (!_core.LoadContent())
+        {
+            return 0;
+        }
+
+        ShowReadyMessage(environment);
+        return 1;
     }
 
     public static void UnloadGame() => _core?.UnloadContent();
@@ -84,13 +107,21 @@ internal static unsafe class ProbeRuntime
 
     public static void Run()
     {
-        if (_failed != 0)
+        if (_failed != 0 || _core is null || !_core.IsContentLoaded)
         {
             return;
         }
 
         var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
-        _core?.Run(_callbacks);
+        var environment = new RetroEnvironment(_callbacks.Environment);
+        if (environment.GetVariableUpdate(out var updated) && updated)
+        {
+            _ = environment.GetVariable(ProbeEnvironmentData.CoreOptionKey, out _);
+        }
+
+        _ = environment.GetAudioVideoEnable(out var audioVideoEnable);
+        _ = environment.GetFastForwarding(out _);
+        _core?.Run(_callbacks, _supportsInputBitmasks, audioVideoEnable);
         if (GC.GetAllocatedBytesForCurrentThread() != allocatedBefore)
         {
             _failed = 1;
@@ -98,4 +129,19 @@ internal static unsafe class ProbeRuntime
     }
 
     public static void RecordFailure() => _failed = 1;
+
+    private static void ShowReadyMessage(RetroEnvironment environment)
+    {
+        if (_messageInterfaceVersion >= 1)
+        {
+            var extendedMessage = ProbeEnvironmentData.ExtendedReadyMessage;
+            if (environment.SetMessageExtended(&extendedMessage))
+            {
+                return;
+            }
+        }
+
+        var legacyMessage = ProbeEnvironmentData.LegacyReadyMessage;
+        _ = environment.SetMessage(&legacyMessage);
+    }
 }

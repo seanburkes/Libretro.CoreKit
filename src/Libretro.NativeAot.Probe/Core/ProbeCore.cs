@@ -73,18 +73,25 @@ internal sealed unsafe class ProbeCore
         };
     }
 
-    public void Run(CallbackTable callbacks)
+    public void Run(
+        RetroFrontendCallbacks callbacks,
+        bool supportsInputBitmasks,
+        RetroAudioVideoEnableFlags audioVideoEnable)
     {
         if (_lifecycle != CoreLifecycle.ContentLoaded)
         {
             return;
         }
 
-        PollInput(callbacks);
+        var input = PollInput(callbacks, supportsInputBitmasks);
         RenderFrame();
-        GenerateAudio(callbacks);
+        GenerateAudio(
+            callbacks,
+            IsPressed(input, RetroJoypadId.A),
+            (audioVideoEnable & RetroAudioVideoEnableFlags.Audio) != 0);
 
-        if (callbacks.VideoRefresh != null)
+        if ((audioVideoEnable & RetroAudioVideoEnableFlags.Video) != 0 &&
+            callbacks.VideoRefresh != null)
         {
             fixed (uint* video = _video)
             {
@@ -95,7 +102,7 @@ internal sealed unsafe class ProbeCore
         _frameNumber++;
     }
 
-    private void PollInput(CallbackTable callbacks)
+    private ushort PollInput(RetroFrontendCallbacks callbacks, bool supportsInputBitmasks)
     {
         if (callbacks.InputPoll != null)
         {
@@ -104,18 +111,37 @@ internal sealed unsafe class ProbeCore
 
         if (callbacks.InputState == null)
         {
-            return;
+            return 0;
         }
 
-        if (callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.Left) != 0)
+        ushort input;
+        if (supportsInputBitmasks)
+        {
+            input = (ushort)callbacks.InputState(
+                0,
+                (uint)RetroDevice.Joypad,
+                0,
+                (uint)RetroJoypadId.Mask);
+        }
+        else
+        {
+            input = 0;
+            input |= ReadButton(callbacks, RetroJoypadId.Left);
+            input |= ReadButton(callbacks, RetroJoypadId.Right);
+            input |= ReadButton(callbacks, RetroJoypadId.A);
+        }
+
+        if (IsPressed(input, RetroJoypadId.Left))
         {
             _cursorX = Math.Max(0, _cursorX - 2);
         }
 
-        if (callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.Right) != 0)
+        if (IsPressed(input, RetroJoypadId.Right))
         {
             _cursorX = Math.Min(Width - 12, _cursorX + 2);
         }
+
+        return input;
     }
 
     private void RenderFrame()
@@ -145,11 +171,13 @@ internal sealed unsafe class ProbeCore
         }
     }
 
-    private void GenerateAudio(CallbackTable callbacks)
+    private void GenerateAudio(
+        RetroFrontendCallbacks callbacks,
+        bool actionPressed,
+        bool submitAudio)
     {
         var toneAmplitude = 3_000;
-        if (callbacks.InputState != null &&
-            callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)RetroJoypadId.A) != 0)
+        if (actionPressed)
         {
             toneAmplitude = 6_000;
         }
@@ -170,6 +198,11 @@ internal sealed unsafe class ProbeCore
 
         fixed (short* audio = _audio)
         {
+            if (!submitAudio)
+            {
+                return;
+            }
+
             if (callbacks.AudioSampleBatch != null)
             {
                 _ = callbacks.AudioSampleBatch(audio, AudioFramesPerVideoFrame);
@@ -185,6 +218,14 @@ internal sealed unsafe class ProbeCore
             }
         }
     }
+
+    private static ushort ReadButton(RetroFrontendCallbacks callbacks, RetroJoypadId id) =>
+        callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)id) != 0
+            ? (ushort)(1 << (int)id)
+            : (ushort)0;
+
+    private static bool IsPressed(ushort input, RetroJoypadId id) =>
+        (input & (1 << (int)id)) != 0;
 
     private void ResetState()
     {

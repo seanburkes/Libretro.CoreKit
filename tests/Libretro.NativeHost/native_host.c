@@ -56,6 +56,20 @@ struct observations
 {
    unsigned support_no_game_calls;
    unsigned pixel_format_calls;
+   unsigned core_options_v2_calls;
+   unsigned input_descriptor_calls;
+   unsigned input_bitmask_calls;
+   unsigned system_directory_calls;
+   unsigned save_directory_calls;
+   unsigned core_assets_directory_calls;
+   unsigned language_calls;
+   unsigned message_version_calls;
+   unsigned message_calls;
+   unsigned message_extended_calls;
+   unsigned variable_update_calls;
+   unsigned variable_calls;
+   unsigned audio_video_enable_calls;
+   unsigned fast_forwarding_calls;
    unsigned video_calls;
    unsigned audio_batch_calls;
    unsigned audio_sample_calls;
@@ -73,9 +87,12 @@ struct observations
    uint64_t no_input_reset_audio_hash;
    uint64_t last_audio_hash;
    bool reject_pixel_format;
+   bool support_optional_interfaces;
+   bool option_update_pending;
    bool provide_input;
    bool saw_nonzero_audio;
    bool callback_error;
+   const struct retro_input_descriptor *input_descriptors;
 };
 
 static struct observations observations;
@@ -101,6 +118,11 @@ static void reset_observations(void)
 
 static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
 {
+   static const char system_directory[] = "/corekit/system";
+   static const char save_directory[] = "/corekit/save";
+   static const char core_assets_directory[] = "/corekit/assets";
+   static const char option_value[] = "on";
+
    if (command == RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME)
    {
       if (data == NULL || !*(const bool *)data)
@@ -115,6 +137,179 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
          observations.callback_error = true;
       observations.pixel_format_calls++;
       return !observations.reject_pixel_format;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2)
+   {
+      const struct retro_core_options_v2 *options = data;
+      if (options == NULL || options->categories == NULL || options->definitions == NULL ||
+          options->categories[0].key == NULL ||
+          strcmp(options->categories[0].key, "audio") != 0 ||
+          options->categories[0].desc == NULL ||
+          strcmp(options->categories[0].desc, "Audio") != 0 ||
+          options->categories[1].key != NULL ||
+          options->definitions[0].key == NULL ||
+          strcmp(options->definitions[0].key, "corekit_probe_tone") != 0 ||
+          options->definitions[0].values[0].value == NULL ||
+          strcmp(options->definitions[0].values[0].value, "off") != 0 ||
+          options->definitions[0].values[1].value == NULL ||
+          strcmp(options->definitions[0].values[1].value, "on") != 0 ||
+          options->definitions[0].values[2].value != NULL ||
+          options->definitions[0].default_value == NULL ||
+          strcmp(options->definitions[0].default_value, "on") != 0 ||
+          options->definitions[1].key != NULL)
+         observations.callback_error = true;
+      observations.core_options_v2_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS)
+   {
+      const struct retro_input_descriptor *descriptors = data;
+      if (descriptors == NULL || descriptors[0].description == NULL ||
+          descriptors[0].id != RETRO_DEVICE_ID_JOYPAD_LEFT ||
+          strcmp(descriptors[0].description, "Move left") != 0 ||
+          descriptors[1].description == NULL ||
+          descriptors[1].id != RETRO_DEVICE_ID_JOYPAD_RIGHT ||
+          descriptors[2].description == NULL ||
+          descriptors[2].id != RETRO_DEVICE_ID_JOYPAD_A ||
+          descriptors[3].description != NULL)
+         observations.callback_error = true;
+      observations.input_descriptors = observations.support_optional_interfaces
+         ? descriptors
+         : NULL;
+      observations.input_descriptor_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_INPUT_BITMASKS)
+   {
+      if (data != NULL)
+         observations.callback_error = true;
+      observations.input_bitmask_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else if (observations.support_optional_interfaces)
+         *(const char **)data = system_directory;
+      observations.system_directory_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else if (observations.support_optional_interfaces)
+         *(const char **)data = save_directory;
+      observations.save_directory_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_CORE_ASSETS_DIRECTORY)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else if (observations.support_optional_interfaces)
+         *(const char **)data = core_assets_directory;
+      observations.core_assets_directory_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_LANGUAGE)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else if (observations.support_optional_interfaces)
+         *(enum retro_language *)data = RETRO_LANGUAGE_THAI;
+      observations.language_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else
+         *(unsigned *)data = 1;
+      observations.message_version_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_MESSAGE_EXT)
+   {
+      const struct retro_message_ext *message = data;
+      if (message == NULL || message->msg == NULL ||
+          strcmp(message->msg, "CoreKit probe ready") != 0 ||
+          message->duration != 3000 || message->priority != 1 ||
+          message->level != RETRO_LOG_INFO ||
+          message->target != RETRO_MESSAGE_TARGET_ALL ||
+          message->type != RETRO_MESSAGE_TYPE_NOTIFICATION ||
+          message->progress != -1)
+         observations.callback_error = true;
+      observations.message_extended_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_MESSAGE)
+   {
+      const struct retro_message *message = data;
+      if (message == NULL || message->msg == NULL ||
+          strcmp(message->msg, "CoreKit probe ready") != 0 || message->frames != 180)
+         observations.callback_error = true;
+      observations.message_calls++;
+      return true;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else
+      {
+         *(bool *)data = observations.option_update_pending;
+         observations.option_update_pending = false;
+      }
+      observations.variable_update_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_VARIABLE)
+   {
+      struct retro_variable *variable = data;
+      if (variable == NULL || variable->key == NULL ||
+          strcmp(variable->key, "corekit_probe_tone") != 0)
+         observations.callback_error = true;
+      else
+         variable->value = option_value;
+      observations.variable_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else
+         *(int *)data = observations.support_optional_interfaces
+            ? RETRO_AV_ENABLE_VIDEO | RETRO_AV_ENABLE_AUDIO
+            : 0;
+      observations.audio_video_enable_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_FASTFORWARDING)
+   {
+      if (data == NULL)
+         observations.callback_error = true;
+      else
+         *(bool *)data = true;
+      observations.fast_forwarding_calls++;
+      return observations.support_optional_interfaces;
    }
 
    return false;
@@ -199,6 +394,14 @@ static int16_t RETRO_CALLCONV input_state_callback(
    observations.input_state_calls++;
    if (!observations.provide_input)
       return 0;
+
+   if (id == RETRO_DEVICE_ID_JOYPAD_MASK)
+   {
+      observations.right_press_reports++;
+      observations.a_press_reports++;
+      return (int16_t)((1U << RETRO_DEVICE_ID_JOYPAD_RIGHT) |
+                       (1U << RETRO_DEVICE_ID_JOYPAD_A));
+   }
 
    if (id == RETRO_DEVICE_ID_JOYPAD_RIGHT)
    {
@@ -347,20 +550,80 @@ static bool validate_abi_layout(void)
       offsetof(struct retro_game_info, path) == 0 &&
       offsetof(struct retro_game_info, data) == 8 &&
       offsetof(struct retro_game_info, size) == 16 &&
-      offsetof(struct retro_game_info, meta) == 24;
+      offsetof(struct retro_game_info, meta) == 24 &&
+      sizeof(struct retro_input_descriptor) == 24 &&
+      _Alignof(struct retro_input_descriptor) == 8 &&
+      offsetof(struct retro_input_descriptor, port) == 0 &&
+      offsetof(struct retro_input_descriptor, device) == 4 &&
+      offsetof(struct retro_input_descriptor, index) == 8 &&
+      offsetof(struct retro_input_descriptor, id) == 12 &&
+      offsetof(struct retro_input_descriptor, description) == 16 &&
+      sizeof(struct retro_variable) == 16 &&
+      offsetof(struct retro_variable, key) == 0 &&
+      offsetof(struct retro_variable, value) == 8 &&
+      sizeof(struct retro_message) == 16 &&
+      offsetof(struct retro_message, msg) == 0 &&
+      offsetof(struct retro_message, frames) == 8 &&
+      sizeof(struct retro_message_ext) == 32 &&
+      offsetof(struct retro_message_ext, msg) == 0 &&
+      offsetof(struct retro_message_ext, duration) == 8 &&
+      offsetof(struct retro_message_ext, priority) == 12 &&
+      offsetof(struct retro_message_ext, level) == 16 &&
+      offsetof(struct retro_message_ext, target) == 20 &&
+      offsetof(struct retro_message_ext, type) == 24 &&
+      offsetof(struct retro_message_ext, progress) == 28 &&
+      sizeof(struct retro_core_option_value) == 16 &&
+      sizeof(struct retro_core_option_v2_category) == 24 &&
+      offsetof(struct retro_core_option_v2_category, key) == 0 &&
+      offsetof(struct retro_core_option_v2_category, desc) == 8 &&
+      offsetof(struct retro_core_option_v2_category, info) == 16 &&
+      sizeof(struct retro_core_option_v2_definition) == 2104 &&
+      offsetof(struct retro_core_option_v2_definition, key) == 0 &&
+      offsetof(struct retro_core_option_v2_definition, desc) == 8 &&
+      offsetof(struct retro_core_option_v2_definition, desc_categorized) == 16 &&
+      offsetof(struct retro_core_option_v2_definition, info) == 24 &&
+      offsetof(struct retro_core_option_v2_definition, info_categorized) == 32 &&
+      offsetof(struct retro_core_option_v2_definition, category_key) == 40 &&
+      offsetof(struct retro_core_option_v2_definition, values) == 48 &&
+      offsetof(struct retro_core_option_v2_definition, default_value) == 2096 &&
+      sizeof(struct retro_core_options_v2) == 16 &&
+      offsetof(struct retro_core_options_v2, categories) == 0 &&
+      offsetof(struct retro_core_options_v2, definitions) == 8 &&
+      sizeof(enum retro_language) == 4 &&
+      sizeof(enum retro_av_enable_flags) == 4 &&
+      sizeof(enum retro_log_level) == 4 &&
+      sizeof(enum retro_message_target) == 4 &&
+      sizeof(enum retro_message_type) == 4;
 
    printf("ABI: pointer=%zu, bool=%zu, system_info=%zu/%zu, geometry=%zu/%zu, "
-          "timing=%zu/%zu, av_info=%zu/%zu, game_info=%zu/%zu\n",
+          "timing=%zu/%zu, av_info=%zu/%zu, game_info=%zu/%zu, "
+          "input_descriptor=%zu/%zu, message_ext=%zu/%zu, option_v2=%zu/%zu\n",
           sizeof(void *), sizeof(bool),
           sizeof(struct retro_system_info), _Alignof(struct retro_system_info),
           sizeof(struct retro_game_geometry), _Alignof(struct retro_game_geometry),
           sizeof(struct retro_system_timing), _Alignof(struct retro_system_timing),
           sizeof(struct retro_system_av_info), _Alignof(struct retro_system_av_info),
-          sizeof(struct retro_game_info), _Alignof(struct retro_game_info));
+          sizeof(struct retro_game_info), _Alignof(struct retro_game_info),
+          sizeof(struct retro_input_descriptor), _Alignof(struct retro_input_descriptor),
+          sizeof(struct retro_message_ext), _Alignof(struct retro_message_ext),
+          sizeof(struct retro_core_option_v2_definition),
+          _Alignof(struct retro_core_option_v2_definition));
    return check(valid, "C ABI layouts");
 }
 
-static bool run_session(const struct core_api *api)
+static bool validate_retained_input_descriptors(void)
+{
+   const struct retro_input_descriptor *descriptors = observations.input_descriptors;
+   return descriptors != NULL && descriptors[0].description != NULL &&
+          strcmp(descriptors[0].description, "Move left") == 0 &&
+          descriptors[1].description != NULL &&
+          strcmp(descriptors[1].description, "Move right") == 0 &&
+          descriptors[2].description != NULL &&
+          strcmp(descriptors[2].description, "Increase tone") == 0 &&
+          descriptors[3].description == NULL;
+}
+
+static bool run_session(const struct core_api *api, bool support_optional_interfaces)
 {
    struct retro_system_info system_info;
    struct retro_system_av_info av_info;
@@ -369,6 +632,8 @@ static bool run_session(const struct core_api *api)
    unsigned frame;
 
    reset_observations();
+   observations.support_optional_interfaces = support_optional_interfaces;
+   observations.option_update_pending = true;
    memset(&system_info, 0, sizeof(system_info));
    api->retro_get_system_info(NULL);
    api->retro_get_system_av_info(NULL);
@@ -391,7 +656,8 @@ static bool run_session(const struct core_api *api)
    api->retro_set_input_poll(input_poll_callback);
    api->retro_set_input_state(input_state_callback);
 
-   if (!check(observations.support_no_game_calls == 1, "support-no-game negotiation"))
+   if (!check(observations.support_no_game_calls == 1, "support-no-game negotiation") ||
+       !check(observations.core_options_v2_calls == 1, "core-options-v2 registration"))
       return false;
 
    memset(&av_info, 0xFF, sizeof(av_info));
@@ -404,12 +670,27 @@ static bool run_session(const struct core_api *api)
       return false;
 
    api->retro_init();
+   if (!check(observations.input_descriptor_calls == 1, "input descriptors") ||
+       !check(observations.input_bitmask_calls == 1, "input-bitmask negotiation") ||
+       !check(observations.system_directory_calls == 1, "system directory query") ||
+       !check(observations.save_directory_calls == 1, "save directory query") ||
+       !check(observations.core_assets_directory_calls == 2,
+              "content/core-assets directory alias queries") ||
+       !check(observations.language_calls == 1, "language query") ||
+       !check(observations.message_version_calls == 1, "message interface query"))
+      return false;
    observations.reject_pixel_format = true;
    if (!check(!api->retro_load_game(NULL), "rejected XRGB8888 negotiation"))
       return false;
    observations.reject_pixel_format = false;
    if (!check(api->retro_load_game(NULL), "contentless load after environment rejection") ||
-       !check(observations.pixel_format_calls == 2, "XRGB8888 negotiation and retry"))
+       !check(observations.pixel_format_calls == 2, "XRGB8888 negotiation and retry") ||
+       !check(observations.message_extended_calls ==
+                 (support_optional_interfaces ? 1U : 0U),
+              "extended message path") ||
+       !check(observations.message_calls ==
+                 (support_optional_interfaces ? 0U : 1U),
+              "legacy message fallback"))
       return false;
 
    memset(&av_info, 0, sizeof(av_info));
@@ -441,7 +722,9 @@ static bool run_session(const struct core_api *api)
        !check(observations.audio_frames == 6 * 800, "audio frame count") ||
        !check(observations.saw_nonzero_audio, "generated tone") ||
        !check(observations.input_poll_calls == 6, "input polling count") ||
-       !check(observations.input_state_calls == 18, "input query count") ||
+       !check(observations.input_state_calls ==
+                 (support_optional_interfaces ? 6U : 18U),
+              "bitmask or single-button input query count") ||
        !check(observations.right_press_reports == 2, "direction input reports") ||
        !check(observations.a_press_reports == 2, "button input reports") ||
        !check(observations.first_video_hash != 0, "first video hash") ||
@@ -457,7 +740,17 @@ static bool run_session(const struct core_api *api)
        !check(observations.no_input_reset_audio_hash != observations.first_audio_hash,
               "input-sensitive audio output") ||
        !check(observations.last_audio_hash == observations.first_audio_hash,
-              "audio reset determinism"))
+              "audio reset determinism") ||
+       !check(observations.variable_update_calls == 6, "option-update polling") ||
+       !check(observations.variable_calls ==
+                 (support_optional_interfaces ? 1U : 0U),
+              "updated option query") ||
+       !check(observations.audio_video_enable_calls == 6, "audio/video enable queries") ||
+       !check(observations.fast_forwarding_calls == 6, "fast-forward queries") ||
+       !check(support_optional_interfaces
+                 ? validate_retained_input_descriptors()
+                 : observations.input_descriptors == NULL,
+              "input descriptor lifetime through loaded session"))
       return false;
 
    if (!check(api->retro_serialize_size() == 0, "unsupported serialize size") ||
@@ -675,7 +968,7 @@ int main(int argc, char **argv)
 
       for (session = 0; session < sessions_per_load; session++)
       {
-         if (!run_session(&api))
+         if (!run_session(&api, (session % 2U) == 0))
          {
             (void)close_core(handle);
             fprintf(stderr, "lifecycle iteration %u, session %u failed\n",

@@ -1,5 +1,7 @@
 # Phase 1: Canonical ABI Layer
 
+**Status:** Complete. Phase 2 is the next implementation phase.
+
 ## Goal
 
 Phase 1 extracts the Phase 0-proven libretro ABI into a reusable, trimming-safe
@@ -23,12 +25,18 @@ frontend gates exist elsewhere.
   rejects other pointer widths explicitly rather than guessing layouts.
 - Environment callbacks are synchronous. Wrapper methods may pass stack values
   only for the duration of the callback and never retain frontend pointers.
+- Input descriptors and their UTF-8 strings are core-owned and remain valid
+  through `retro_unload_game`. Message and core-option setters are synchronous;
+  the frontend must copy their nested data as required by `libretro.h`.
+- Directory and core-option value pointers returned by the frontend are borrowed,
+  read-only UTF-8 data. Callers must copy them before retaining them beyond the
+  frontend-defined lifetime.
 - Environment commands are added only with a native-host assertion. Unsupported
   commands remain absent instead of acquiring optimistic placeholder APIs.
 - Variadic libretro logging remains disabled until a small C `"%s"` shim is
   independently tested on each ABI.
 
-## Completed slice: reusable foundation
+## Completed scope
 
 - [x] Create `src/Libretro.Core` with NativeAOT and trimming analyzers enabled.
 - [x] Move the proven system-info, AV-info, geometry, timing, and game-info
@@ -41,20 +49,33 @@ frontend gates exist elsewhere.
 - [x] Verify successful and rejected pixel-format negotiation through the C
       host.
 - [x] Retain the upstream libretro license notice beside the derived ABI files.
+- [x] Move the six mandatory frontend callback signatures into a reusable,
+      blittable callback table.
+- [x] Add input descriptors and input-bitmask negotiation, including the
+      single-button fallback path.
+- [x] Add typed, non-owning system, save, content, and core-assets directory
+      queries. `GET_CONTENT_DIRECTORY` is preserved as the canonical obsolete
+      alias of `GET_CORE_ASSETS_DIRECTORY`; both have command value 30.
+- [x] Add language, audio/video-enable, and fast-forward queries with the
+      defaults required when a frontend rejects each command.
+- [x] Add extended messages with legacy `SET_MESSAGE` fallback.
+- [x] Add core-options-v2 categories, definitions, fixed 128-value storage,
+      registration, update polling, and value lookup.
+- [x] Extend the managed and C layout guards for every new ABI type.
+- [x] Exercise accepted and rejected optional interfaces through paired native
+      host sessions while retaining the steady-state allocation tripwire.
+- [x] Keep logging explicitly disabled. Calling a C variadic function through a
+      made-up fixed C# signature is not an implementation strategy.
 
-## Next slices
+## Deliberate limits
 
-1. Add input descriptors and input-bitmask negotiation, including single-button
-   fallback tests in the C host.
-2. Add typed, non-owning directory queries for system, save, content, and assets
-   paths, with explicit UTF-8 pointer-lifetime rules.
-3. Add messages, language, audio/video-enable state, and fast-forward state.
-4. Add core-options-v2 definitions and update polling as one vertical slice.
-5. Add logging only through the audited variadic C shim described above.
-
-Core options are intentionally later than input and directory queries because
-they introduce retained nested string arrays and substantially more ownership
-surface. A giant binding dump would be faster to type and slower to trust.
+- Only the environment commands listed above are public. Other commands are
+  unsupported and have no placeholder wrapper; a missing frontend callback or
+  rejected typed command returns `false` without retaining output pointers.
+- Core options v2 is the selected initial option interface. Version 0/1 option
+  definition fallbacks are deferred until a supported frontend requires them.
+- Variadic logging has no managed entry point. A future implementation requires
+  a small native `"%s"` shim and independent ABI tests on every target.
 
 ## Open promotion gates
 
@@ -70,7 +91,13 @@ surface. A giant binding dump would be faster to type and slower to trust.
 ## Current evidence
 
 - Release solution build: zero warnings and errors.
+- The independent C host checks all new layouts against the pinned
+  `libretro.h`, validates every typed command, and runs accepted/rejected
+  optional-interface sessions.
 - Linux x64 ASan/UBSan host: 1,000 loads, 2,000 managed sessions, 12,000
-  checked frames, and 1.78 MiB RSS growth.
+  checked frames, and 1.77 MiB RSS growth under the Phase 1 command surface.
 - Linux x64 RetroArch: recovery scenarios, 50 managed/control switches, normal
-  frontend exit, and 3.07 MiB peak RSS growth.
+  frontend exit, and 10.56 MiB peak RSS growth against the 16 MiB ceiling.
+- The pull-request gate publishes and executes the same native oracle on Linux,
+  Windows, and macOS across x64 and Arm64. Linux x64 remains the only target with
+  the additional real-RetroArch gate.

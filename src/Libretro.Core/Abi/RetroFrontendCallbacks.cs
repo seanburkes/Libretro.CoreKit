@@ -1,10 +1,12 @@
-using Libretro.Core.Environment;
+// Derived from the pinned libretro.h. See NOTICE.md in this directory.
+using System.Runtime.InteropServices;
 
-namespace Libretro.NativeAot.Probe.Core;
+namespace Libretro.Core.Abi;
 
-internal unsafe struct CallbackTable
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct RetroFrontendCallbacks
 {
-    public RetroEnvironment Environment;
+    public delegate* unmanaged[Cdecl]<uint, void*, byte> Environment;
     public delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void> VideoRefresh;
     public delegate* unmanaged[Cdecl]<short, short, void> AudioSample;
     public delegate* unmanaged[Cdecl]<short*, nuint, nuint> AudioSampleBatch;
