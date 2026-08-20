@@ -17,11 +17,26 @@
 
   <!-- NativeAOT shared libraries do not support unloading. On ELF targets,
        make that limitation explicit so repeated frontend loads reuse one runtime. -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux-'))">
+    <DirectPInvoke Include="__Internal" />
     <LinkerArg Include="-Wl,-z,nodelete" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Libretro.Core/Libretro.Core.csproj" />
   </ItemGroup>
+
+  <Target Name="CompileLibretroLogShim"
+          BeforeTargets="SetupOSSpecificProps"
+          Condition="$(RuntimeIdentifier.StartsWith('linux-'))">
+    <PropertyGroup>
+      <LibretroLogShimObject>$(IntermediateOutputPath)native/libretro_log_shim.o</LibretroLogShimObject>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName($(LibretroLogShimObject)))" />
+    <Exec Command="clang -std=c11 -fPIC -fvisibility=hidden -I&quot;$(MSBuildProjectDirectory)/../../eng/libretro&quot; -c &quot;$(MSBuildProjectDirectory)/../Libretro.Core/Native/libretro_log_shim.c&quot; -o &quot;$(LibretroLogShimObject)&quot;" />
+    <ItemGroup>
+      <NativeLibrary Include="$(LibretroLogShimObject)" />
+    </ItemGroup>
+  </Target>
 </Project>

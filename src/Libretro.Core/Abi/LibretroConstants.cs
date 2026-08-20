@@ -17,6 +17,7 @@ public enum RetroEnvironmentCommand : uint
     GetVariable = 15,
     GetVariableUpdate = 17,
     SetSupportNoGame = 18,
+    GetLogInterface = 27,
     GetContentDirectory = 30,
     GetCoreAssetsDirectory = GetContentDirectory,
     GetSaveDirectory = 31,

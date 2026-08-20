@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -66,6 +67,8 @@ struct observations
    unsigned message_version_calls;
    unsigned message_calls;
    unsigned message_extended_calls;
+   unsigned log_interface_calls;
+   unsigned log_calls;
    unsigned variable_update_calls;
    unsigned variable_calls;
    unsigned audio_video_enable_calls;
@@ -90,12 +93,34 @@ struct observations
    bool support_optional_interfaces;
    bool option_update_pending;
    bool provide_input;
+   bool suppress_audio_video;
    bool saw_nonzero_audio;
    bool callback_error;
    const struct retro_input_descriptor *input_descriptors;
 };
 
 static struct observations observations;
+
+static void RETRO_CALLCONV log_callback(
+      enum retro_log_level level, const char *format, ...)
+{
+   const char *message;
+   va_list arguments;
+
+   message = NULL;
+   if (format != NULL && strcmp(format, "%s") == 0)
+   {
+      va_start(arguments, format);
+      message = va_arg(arguments, const char *);
+      va_end(arguments);
+   }
+
+   if (format == NULL || strcmp(format, "%s") != 0 || message == NULL ||
+       strncmp(message, "CoreKit ", 8) != 0 ||
+       (level != RETRO_LOG_DEBUG && level != RETRO_LOG_INFO))
+      observations.callback_error = true;
+   observations.log_calls++;
+}
 
 static uint64_t hash_bytes(const void *data, size_t size)
 {
@@ -161,6 +186,21 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
          observations.callback_error = true;
       observations.core_options_v2_calls++;
       return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_LOG_INTERFACE)
+   {
+      struct retro_log_callback *logger = data;
+      if (logger == NULL)
+         observations.callback_error = true;
+      else
+         logger->log = log_callback;
+      observations.log_interface_calls++;
+#if defined(__linux__)
+      return observations.support_optional_interfaces;
+#else
+      return false;
+#endif
    }
 
    if (command == RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS)
@@ -295,7 +335,8 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
       if (data == NULL)
          observations.callback_error = true;
       else
-         *(int *)data = observations.support_optional_interfaces
+         *(int *)data = observations.support_optional_interfaces &&
+               !observations.suppress_audio_video
             ? RETRO_AV_ENABLE_VIDEO | RETRO_AV_ENABLE_AUDIO
             : 0;
       observations.audio_video_enable_calls++;
@@ -572,6 +613,8 @@ static bool validate_abi_layout(void)
       offsetof(struct retro_message_ext, target) == 20 &&
       offsetof(struct retro_message_ext, type) == 24 &&
       offsetof(struct retro_message_ext, progress) == 28 &&
+      sizeof(struct retro_log_callback) == 8 &&
+      offsetof(struct retro_log_callback, log) == 0 &&
       sizeof(struct retro_core_option_value) == 16 &&
       sizeof(struct retro_core_option_v2_category) == 24 &&
       offsetof(struct retro_core_option_v2_category, key) == 0 &&
@@ -623,13 +666,69 @@ static bool validate_retained_input_descriptors(void)
           descriptors[3].description == NULL;
 }
 
+static bool validate_late_callback_registration(
+      const struct core_api *api, bool support_optional_interfaces)
+{
+   reset_observations();
+   observations.support_optional_interfaces = support_optional_interfaces;
+   observations.option_update_pending = true;
+
+   api->retro_set_environment(environment_callback);
+   api->retro_init();
+   if (!check(api->retro_load_game(NULL), "load before frame callback registration"))
+      return false;
+
+   api->retro_run();
+   if (!check(observations.video_calls == 0, "missing callbacks produce no video") ||
+       !check(observations.audio_batch_calls == 0, "missing callbacks produce no audio") ||
+       !check(observations.input_poll_calls == 0, "missing callbacks produce no input poll"))
+      return false;
+
+   api->retro_set_video_refresh(video_callback);
+   api->retro_set_audio_sample(audio_sample_callback);
+   api->retro_set_audio_sample_batch(audio_batch_callback);
+   api->retro_set_input_poll(input_poll_callback);
+   api->retro_set_input_state(input_state_callback);
+   api->retro_run();
+   api->retro_reset();
+   api->retro_run();
+   api->retro_unload_game();
+   api->retro_deinit();
+   if (!check(!observations.callback_error, "late callback registration arguments") ||
+       !check(observations.video_calls == 2, "video after late callback registration") ||
+       !check(observations.audio_batch_calls == 2, "audio after late callback registration") ||
+       !check(observations.input_poll_calls == 2, "input after late callback registration") ||
+       !check(observations.first_video_hash == observations.second_video_hash,
+              "missing callbacks do not advance video state") ||
+       !check(observations.first_audio_hash == observations.second_audio_hash,
+              "missing callbacks do not advance audio state") ||
+       !check(observations.log_interface_calls == 1, "logging negotiation during preflight"))
+      return false;
+
+#if defined(__linux__)
+   if (!check(observations.log_calls ==
+                (support_optional_interfaces ? 5U : 0U),
+              "logging during late callback registration"))
+      return false;
+#else
+   if (!check(observations.log_calls == 0, "logging remains disabled outside Linux"))
+      return false;
+#endif
+
+   return true;
+}
+
 static bool run_session(const struct core_api *api, bool support_optional_interfaces)
 {
    struct retro_system_info system_info;
    struct retro_system_av_info av_info;
+   struct retro_game_info invalid_game_info;
    unsigned video_calls_before_unloaded_run;
    uint8_t scratch = 0;
    unsigned frame;
+
+   if (!validate_late_callback_registration(api, support_optional_interfaces))
+      return false;
 
    reset_observations();
    observations.support_optional_interfaces = support_optional_interfaces;
@@ -657,7 +756,8 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    api->retro_set_input_state(input_state_callback);
 
    if (!check(observations.support_no_game_calls == 1, "support-no-game negotiation") ||
-       !check(observations.core_options_v2_calls == 1, "core-options-v2 registration"))
+       !check(observations.core_options_v2_calls == 1, "core-options-v2 registration") ||
+       !check(observations.log_interface_calls == 1, "logging negotiation"))
       return false;
 
    memset(&av_info, 0xFF, sizeof(av_info));
@@ -669,6 +769,7 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    if (!check(observations.video_calls == 0, "run before initialization is a no-op"))
       return false;
 
+   api->retro_init();
    api->retro_init();
    if (!check(observations.input_descriptor_calls == 1, "input descriptors") ||
        !check(observations.input_bitmask_calls == 1, "input-bitmask negotiation") ||
@@ -683,7 +784,15 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    if (!check(!api->retro_load_game(NULL), "rejected XRGB8888 negotiation"))
       return false;
    observations.reject_pixel_format = false;
+
+   memset(&invalid_game_info, 0, sizeof(invalid_game_info));
+   invalid_game_info.size = 1;
+   if (!check(!api->retro_load_game(&invalid_game_info),
+              "content with a size but no data is rejected"))
+      return false;
+
    if (!check(api->retro_load_game(NULL), "contentless load after environment rejection") ||
+       !check(!api->retro_load_game(NULL), "duplicate content load is rejected") ||
        !check(observations.pixel_format_calls == 2, "XRGB8888 negotiation and retry") ||
        !check(observations.message_extended_calls ==
                  (support_optional_interfaces ? 1U : 0U),
@@ -723,7 +832,7 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
        !check(observations.saw_nonzero_audio, "generated tone") ||
        !check(observations.input_poll_calls == 6, "input polling count") ||
        !check(observations.input_state_calls ==
-                 (support_optional_interfaces ? 6U : 18U),
+                 (support_optional_interfaces ? 6U : 96U),
               "bitmask or single-button input query count") ||
        !check(observations.right_press_reports == 2, "direction input reports") ||
        !check(observations.a_press_reports == 2, "button input reports") ||
@@ -753,6 +862,28 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
               "input descriptor lifetime through loaded session"))
       return false;
 
+   api->retro_set_audio_sample_batch(NULL);
+   api->retro_run();
+   if (!check(observations.video_calls == 7, "video during sample-audio fallback") ||
+       !check(observations.audio_batch_calls == 6, "batch audio disabled for fallback") ||
+       !check(observations.audio_sample_calls == 800, "sample-audio fallback"))
+      return false;
+   api->retro_set_audio_sample_batch(audio_batch_callback);
+
+   if (support_optional_interfaces)
+   {
+      unsigned video_calls_before_suppression = observations.video_calls;
+      unsigned audio_calls_before_suppression = observations.audio_batch_calls;
+      observations.suppress_audio_video = true;
+      api->retro_run();
+      observations.suppress_audio_video = false;
+      if (!check(observations.video_calls == video_calls_before_suppression,
+                 "frontend video suppression") ||
+          !check(observations.audio_batch_calls == audio_calls_before_suppression,
+                 "frontend audio suppression"))
+         return false;
+   }
+
    if (!check(api->retro_serialize_size() == 0, "unsupported serialize size") ||
        !check(!api->retro_serialize(&scratch, sizeof(scratch)), "unsupported serialize") ||
        !check(!api->retro_unserialize(&scratch, sizeof(scratch)), "unsupported unserialize") ||
@@ -776,6 +907,17 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    api->retro_run();
    if (!check(!api->retro_load_game(NULL), "load after deinitialization is rejected"))
       return false;
+
+#if defined(__linux__)
+   if (!check(observations.log_calls ==
+                (support_optional_interfaces ? 5U : 0U),
+              "audited logging bridge lifecycle"))
+      return false;
+#else
+   if (!check(observations.log_calls == 0, "logging remains disabled outside Linux"))
+      return false;
+#endif
+
    return true;
 }
 

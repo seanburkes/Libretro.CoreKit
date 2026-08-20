@@ -138,8 +138,7 @@ internal static unsafe class LibretroExports
     [UnmanagedCallersOnly(EntryPoint = "retro_load_game", CallConvs = [typeof(CallConvCdecl)])]
     public static byte LoadGame(RetroGameInfo* game)
     {
-        _ = game;
-        try { return ProbeRuntime.LoadGame(); }
+        try { return ProbeRuntime.LoadGame(game); }
         catch { ProbeRuntime.RecordFailure(); return 0; }
     }
 
