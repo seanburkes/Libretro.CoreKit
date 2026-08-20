@@ -79,10 +79,7 @@ supported .NET path for producing self-contained native shared libraries.
 
 ## Repository and Project Structure
 
-Create a new repository rather than deriving it from the old `Libretro.NET`
-frontend implementation.
-
-Suggested structure:
+The repository structure is:
 
 ```text
 eng/
@@ -94,15 +91,12 @@ src/
     Abi/
     Environment/
     Hosting/
-  Libretro.Core.Generator/       # deferred until justified
-samples/
-  Libretro.SoftwareSample/
-  Libretro.Chip8/
+  Libretro.NativeAot.Probe/
+  Libretro.NativeAot.Chip8/
 tests/
-  Libretro.Core.Tests/
-  Libretro.Abi.Tests/
   Libretro.NativeHost/
-  Libretro.RetroArch.Tests/
+  Libretro.Chip8.NativeHost/
+  RetroArch/
 ```
 
 The Craterboy repository should later add a separate publishing project:
@@ -280,6 +274,10 @@ Do not use OpenGL or another hardware-rendering API for this sample. Hardware
 context negotiation would obscure basic ABI and lifecycle failures.
 
 ## Phase 4: CHIP-8 Reference Core
+
+**Status:** In progress. The bounded content/execution foundation is complete;
+see [PHASE-4.md](PHASE-4.md). Remaining instructions, timers, audible sound,
+quirk options, and broader replay fixtures are next.
 
 Implement or adapt a tiny dependency-free CHIP-8 emulator to exercise realistic
 core behavior:

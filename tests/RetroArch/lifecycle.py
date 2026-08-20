@@ -143,6 +143,22 @@ def exercise_rejected_content(sock, port, core, missing_content):
     probe(sock, port, "rejected content load")
 
 
+def exercise_chip8_content(sock, port, core, content):
+    send(sock, port, f"LOAD_CONTENT {core}|{content}")
+    wait_for(sock, port, lambda value: "PLAYING" in value, "CHIP-8 content start")
+    send(sock, port, "RESET")
+    time.sleep(0.05)
+    probe(sock, port, "CHIP-8 RESET")
+    send(sock, port, "UNLOAD_CORE")
+    wait_for(
+        sock,
+        port,
+        lambda value: "CONTENTLESS" in value,
+        "CHIP-8 core unload",
+    )
+    probe(sock, port, "CHIP-8 UNLOAD_CORE")
+
+
 def save_supported_state(sock, port, state_path, log_path):
     log_start = os.path.getsize(log_path)
     send(sock, port, "SAVE_STATE_SLOT 0")
@@ -226,6 +242,8 @@ def parse_args():
     parser.add_argument("--config", required=True)
     parser.add_argument("--managed-core", required=True)
     parser.add_argument("--control-core", required=True)
+    parser.add_argument("--chip8-core", required=True)
+    parser.add_argument("--chip8-content", required=True)
     parser.add_argument("--cycles", type=int, default=50)
     parser.add_argument("--rss-limit-mib", type=int, default=16)
     parser.add_argument("--port", type=int, default=55355)
@@ -297,6 +315,14 @@ def main():
             'corekit_probe_palette = "monochrome"\n'
             'corekit_probe_tone = "off"\n'
         )
+    os.makedirs(os.path.dirname(args.chip8_content), exist_ok=True)
+    with open(args.chip8_content, "wb") as content_file:
+        content_file.write(
+            bytes.fromhex(
+                "00e0 6000 6108 6206 e2a1 7004 a212 d015 1210 "
+                "f0909090f000"
+            )
+        )
     log = open(args.log, "wb")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setblocking(False)
@@ -314,6 +340,20 @@ def main():
 
         exercise_close_content(sock, args.port, args.control_core)
         print("content close and restart: recovered", flush=True)
+
+        exercise_chip8_content(
+            sock,
+            args.port,
+            args.chip8_core,
+            args.chip8_content,
+        )
+        wait_for_logged(
+            args.log,
+            0,
+            "[libretro INFO] CoreKit CHIP-8 content accepted",
+            "RetroArch CHIP-8 content load",
+        )
+        print("CHIP-8 content load, reset, and unload: accepted", flush=True)
 
         for cycle in range(1, args.cycles + 1):
             run_core(

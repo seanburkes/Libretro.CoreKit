@@ -213,13 +213,13 @@ internal sealed unsafe class ProbeCore : ILibretroCore
                         _ => 0x00E0E0E0u,
                     }
                     : (animatedX / 32) switch
-                {
-                    0 => 0x00D94A4Au,
-                    1 => 0x00E6A23Cu,
-                    2 => 0x00E5D85Cu,
-                    3 => 0x0046B96Bu,
-                    _ => 0x004A78D0u,
-                };
+                    {
+                        0 => 0x00D94A4Au,
+                        1 => 0x00E6A23Cu,
+                        2 => 0x00E5D85Cu,
+                        3 => 0x0046B96Bu,
+                        _ => 0x004A78D0u,
+                    };
             }
         }
 
