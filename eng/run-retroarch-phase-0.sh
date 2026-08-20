@@ -10,15 +10,18 @@ ra_root="${repo_root}/artifacts/retroarch/${ra_commit}"
 ra_source="${ra_root}/source"
 ra_binary="${RETROARCH_BINARY:-${ra_source}/retroarch}"
 core_path="${repo_root}/artifacts/phase-0/linux-x64/core/corekit_probe_libretro.so"
+chip8_path="${repo_root}/artifacts/phase-4/linux-x64/core/corekit_chip8_libretro.so"
 control_path="${repo_root}/artifacts/phase-0/linux-x64/control/control_libretro.so"
 profile_root="${ra_root}/profile"
 installed_core="${profile_root}/cores/corekit_probe_libretro.so"
+installed_chip8="${profile_root}/cores/corekit_chip8_libretro.so"
 installed_control="${profile_root}/cores/control_libretro.so"
 log_path="${ra_root}/lifecycle.log"
 summary_path="${ra_root}/lifecycle-summary.log"
 state_path="${profile_root}/config/retroarch/states/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.state"
 save_path="${profile_root}/config/retroarch/saves/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.srm"
 options_path="${profile_root}/config/retroarch/config/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.opt"
+chip8_content_path="${ra_root}/chip8-test-content.ch8"
 config_path="${COREKIT_RETROARCH_CONFIG:-${repo_root}/tests/RetroArch/stress.cfg}"
 
 if [[ -z "${RETROARCH_BINARY:-}" ]]; then
@@ -53,6 +56,8 @@ fi
 
 COREKIT_STRESS_CYCLES="${COREKIT_NATIVE_CYCLES:-25}" \
   "${repo_root}/eng/run-phase-0a.sh"
+COREKIT_CHIP8_CYCLES="${COREKIT_CHIP8_NATIVE_CYCLES:-25}" \
+  "${repo_root}/eng/run-chip8.sh"
 
 mkdir -p "$(dirname "${control_path}")" "${profile_root}/config" \
   "${profile_root}/cache" "${profile_root}/data" \
@@ -62,6 +67,7 @@ cc -std=c11 -Wall -Wextra -Wpedantic -Werror -fPIC -shared \
   "${repo_root}/tests/RetroArch/conventional_core.c" \
   -o "${control_path}"
 cp "${core_path}" "${installed_core}"
+cp "${chip8_path}" "${installed_chip8}"
 cp "${control_path}" "${installed_control}"
 cp "${repo_root}/tests/RetroArch/corekit_probe_libretro.info" \
   "${profile_root}/info/corekit_probe_libretro.info"
@@ -76,6 +82,8 @@ python3 "${repo_root}/tests/RetroArch/lifecycle.py" \
   --config "${config_path}" \
   --managed-core "${installed_core}" \
   --control-core "${installed_control}" \
+  --chip8-core "${installed_chip8}" \
+  --chip8-content "${chip8_content_path}" \
   --cycles "${cycles}" \
   --rss-limit-mib "${rss_limit}" \
   --state "${state_path}" \

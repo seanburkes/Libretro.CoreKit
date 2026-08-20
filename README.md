@@ -37,10 +37,17 @@ live tone and palette options without steady-state frame allocations. The C
 oracle proves runtime output changes, while the RetroArch gate proves persisted
 non-default settings through real frontend lifecycles.
 
+Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
+in-memory `.ch8` content loading, deterministic subset execution, 64x32
+XRGB8888 rendering, RetroPad mapping, timed silent audio batches, reset, pinned
+system RAM, and transactional state loading. The remaining instruction set,
+timers, audible sound, and quirk options are deliberately still open.
+
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
 ABI layer, [PHASE-2.md](PHASE-2.md) records the completed reusable host, and
 [PHASE-3.md](PHASE-3.md) records the completed software sample.
+[PHASE-4.md](PHASE-4.md) tracks the CHIP-8 reference core as it is implemented.
 Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
@@ -66,6 +73,18 @@ controller configuration so the frontend exercises device-change forwarding.
 Its tone and color/monochrome palette options take effect during a loaded
 session without restarting the core.
 
+## Run the Linux CHIP-8 foundation gate
+
+```sh
+./eng/run-chip8.sh
+```
+
+This publishes `corekit_chip8_libretro.so` and runs its focused independent C
+host under ASan/UBSan. The host loads deterministic in-memory `.ch8` test
+content, verifies instruction execution and RetroPad-sensitive video, and
+round-trips the versioned state while checking stable CHIP-8 system RAM. Use
+`COREKIT_CHIP8_CYCLES=1000` for the full loader stress count.
+
 ## Run the Linux RetroArch lifecycle gate
 
 Requirements additionally include SDL2 development files and X11 (or Xvfb):
@@ -81,7 +100,8 @@ exit through RetroArch's `QUIT` command. It also verifies recovery from missing
 content, content closure, save-memory persistence, and save/load state across
 separate frontend process lifecycles. Static metadata ownership and controller
 registration/device forwarding are checked in the same frontend gate, along
-with persisted non-default core options. The pinned source build applies the
+with persisted non-default core options. It also loads, resets, and unloads the
+CHIP-8 core with deterministic test content. The pinned source build applies the
 narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set

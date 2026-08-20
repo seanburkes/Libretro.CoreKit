@@ -26,7 +26,7 @@ behavior from the managed core.
 
 ## Current compatibility decisions
 
-- Linux x64 remains the only RetroArch-supported target through Phase 2.
+- Linux x64 remains the only RetroArch-supported target for the current phase.
 - Other matrix targets prove NativeAOT artifact and C-host compatibility only.
 - Linux uses `NODELETE`; `retro_deinit` performs logical teardown while one
   NativeAOT runtime remains mapped until process exit.
