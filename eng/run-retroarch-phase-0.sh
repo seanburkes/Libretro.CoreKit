@@ -16,6 +16,8 @@ installed_core="${profile_root}/cores/corekit_probe_libretro.so"
 installed_control="${profile_root}/cores/control_libretro.so"
 log_path="${ra_root}/lifecycle.log"
 summary_path="${ra_root}/lifecycle-summary.log"
+state_path="${profile_root}/config/retroarch/states/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.state"
+save_path="${profile_root}/config/retroarch/saves/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.srm"
 config_path="${COREKIT_RETROARCH_CONFIG:-${repo_root}/tests/RetroArch/stress.cfg}"
 
 if [[ -z "${RETROARCH_BINARY:-}" ]]; then
@@ -75,4 +77,6 @@ python3 "${repo_root}/tests/RetroArch/lifecycle.py" \
   --control-core "${installed_control}" \
   --cycles "${cycles}" \
   --rss-limit-mib "${rss_limit}" \
+  --state "${state_path}" \
+  --save "${save_path}" \
   --log "${log_path}" | tee "${summary_path}"

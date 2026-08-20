@@ -1,3 +1,4 @@
+using System.Buffers;
 using Libretro.Core.Abi;
 using Libretro.Core.Environment;
 using Libretro.Core.Logging;
@@ -13,6 +14,11 @@ public sealed unsafe class LibretroHost<TCore>
     private LibretroHostState _state;
     private bool _supportsInputBitmasks;
     private bool _failed;
+    private int _serializedStateSize;
+    private PinnedMemoryRegion _saveRam;
+    private PinnedMemoryRegion _rtc;
+    private PinnedMemoryRegion _systemRam;
+    private PinnedMemoryRegion _videoRam;
 
     public LibretroHost(TCore core) =>
         _core = core ?? throw new ArgumentNullException(nameof(core));
@@ -123,12 +129,21 @@ public sealed unsafe class LibretroHost<TCore>
                 return 0;
             }
 
+            var serializedStateSize = _core.SerializedStateSize;
+            if (serializedStateSize < 0)
+            {
+                throw new InvalidOperationException("Serialized state size cannot be negative.");
+            }
+
+            PinMemoryRegions();
+            _serializedStateSize = serializedStateSize;
             _state = LibretroHostState.ContentLoaded;
             _ = _logger.Write(RetroLogLevel.Info, "CoreKit content loaded\n\0"u8);
             return 1;
         }
         catch
         {
+            ReleaseContentResources();
             try
             {
                 _core.UnloadContent();
@@ -237,8 +252,98 @@ public sealed unsafe class LibretroHost<TCore>
         }
         finally
         {
+            ReleaseContentResources();
             _state = LibretroHostState.Initialized;
         }
+    }
+
+    public nuint SerializeSize() =>
+        _state == LibretroHostState.ContentLoaded && !_failed
+            ? (nuint)_serializedStateSize
+            : 0;
+
+    public byte Serialize(void* data, nuint size)
+    {
+        if (_state != LibretroHostState.ContentLoaded || _failed || data == null)
+        {
+            return 0;
+        }
+
+        try
+        {
+            var expectedSize = _serializedStateSize;
+            if (expectedSize <= 0 || size != (nuint)expectedSize)
+            {
+                return 0;
+            }
+
+            return _core.Serialize(new Span<byte>(data, expectedSize)) ? (byte)1 : (byte)0;
+        }
+        catch
+        {
+            _failed = true;
+            return 0;
+        }
+    }
+
+    public byte Unserialize(void* data, nuint size)
+    {
+        if (_state != LibretroHostState.ContentLoaded || _failed || data == null)
+        {
+            return 0;
+        }
+
+        try
+        {
+            var expectedSize = _serializedStateSize;
+            if (expectedSize <= 0 || size != (nuint)expectedSize)
+            {
+                return 0;
+            }
+
+            return _core.Unserialize(new ReadOnlySpan<byte>(data, expectedSize))
+                ? (byte)1
+                : (byte)0;
+        }
+        catch
+        {
+            _failed = true;
+            return 0;
+        }
+    }
+
+    public void* GetMemoryData(uint id)
+    {
+        if (_state != LibretroHostState.ContentLoaded)
+        {
+            return null;
+        }
+
+        return id switch
+        {
+            (uint)RetroMemory.SaveRam => _saveRam.Data,
+            (uint)RetroMemory.Rtc => _rtc.Data,
+            (uint)RetroMemory.SystemRam => _systemRam.Data,
+            (uint)RetroMemory.VideoRam => _videoRam.Data,
+            _ => null,
+        };
+    }
+
+    public nuint GetMemorySize(uint id)
+    {
+        if (_state != LibretroHostState.ContentLoaded)
+        {
+            return 0;
+        }
+
+        return id switch
+        {
+            (uint)RetroMemory.SaveRam => _saveRam.Size,
+            (uint)RetroMemory.Rtc => _rtc.Size,
+            (uint)RetroMemory.SystemRam => _systemRam.Size,
+            (uint)RetroMemory.VideoRam => _videoRam.Size,
+            _ => 0,
+        };
     }
 
     public void Deinitialize()
@@ -252,6 +357,10 @@ public sealed unsafe class LibretroHost<TCore>
             catch
             {
                 // Continue logical teardown.
+            }
+            finally
+            {
+                ReleaseContentResources();
             }
         }
 
@@ -287,6 +396,23 @@ public sealed unsafe class LibretroHost<TCore>
 
     public void RecordFailure() => _failed = true;
 
+    private void PinMemoryRegions()
+    {
+        _saveRam.Pin(_core.GetMemory(RetroMemory.SaveRam));
+        _rtc.Pin(_core.GetMemory(RetroMemory.Rtc));
+        _systemRam.Pin(_core.GetMemory(RetroMemory.SystemRam));
+        _videoRam.Pin(_core.GetMemory(RetroMemory.VideoRam));
+    }
+
+    private void ReleaseContentResources()
+    {
+        _saveRam.Release();
+        _rtc.Release();
+        _systemRam.Release();
+        _videoRam.Release();
+        _serializedStateSize = 0;
+    }
+
     private bool HasRequiredCallbacks()
     {
         var requirements = _core.RequiredFrameCallbacks;
@@ -313,4 +439,38 @@ public sealed unsafe class LibretroHost<TCore>
             LibretroCallbackRequirements.InputState => _callbacks.InputState != null,
             _ => false,
         };
+
+    private struct PinnedMemoryRegion
+    {
+        private MemoryHandle _handle;
+
+        public void* Data { get; private set; }
+
+        public nuint Size { get; private set; }
+
+        public void Pin(Memory<byte> memory)
+        {
+            if (memory.IsEmpty)
+            {
+                return;
+            }
+
+            _handle = memory.Pin();
+            if (_handle.Pointer == null)
+            {
+                _handle.Dispose();
+                this = default;
+                throw new InvalidOperationException("A non-empty memory region returned a null pointer.");
+            }
+
+            Data = _handle.Pointer;
+            Size = (nuint)memory.Length;
+        }
+
+        public void Release()
+        {
+            _handle.Dispose();
+            this = default;
+        }
+    }
 }
