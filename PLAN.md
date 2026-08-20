@@ -263,6 +263,9 @@ when the operating system leaves the NativeAOT library loaded.
 
 ## Phase 3: Software Sample
 
+**Status:** Complete. See [PHASE-3.md](PHASE-3.md) for the implemented sample,
+runtime-option decisions, and validation evidence. Phase 4 is next.
+
 Build a contentless software sample that exercises the host without introducing
 an emulator:
 

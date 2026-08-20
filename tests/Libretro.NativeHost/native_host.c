@@ -93,9 +93,13 @@ struct observations
    bool reject_pixel_format;
    bool support_optional_interfaces;
    bool option_update_pending;
+   bool tone_option_enabled;
+   bool monochrome_option_enabled;
    bool provide_input;
    bool suppress_audio_video;
    bool saw_nonzero_audio;
+   bool last_audio_silent;
+   bool last_video_monochrome;
    bool callback_error;
    const struct retro_input_descriptor *input_descriptors;
    const struct retro_controller_info *controller_info;
@@ -141,6 +145,7 @@ static uint64_t hash_bytes(const void *data, size_t size)
 static void reset_observations(void)
 {
    memset(&observations, 0, sizeof(observations));
+   observations.tone_option_enabled = true;
 }
 
 static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
@@ -148,7 +153,10 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
    static const char system_directory[] = "/corekit/system";
    static const char save_directory[] = "/corekit/save";
    static const char core_assets_directory[] = "/corekit/assets";
-   static const char option_value[] = "on";
+   static const char tone_on[] = "on";
+   static const char tone_off[] = "off";
+   static const char palette_color[] = "color";
+   static const char palette_monochrome[] = "monochrome";
 
    if (command == RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME)
    {
@@ -174,9 +182,15 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
           strcmp(options->categories[0].key, "audio") != 0 ||
           options->categories[0].desc == NULL ||
           strcmp(options->categories[0].desc, "Audio") != 0 ||
-          options->categories[1].key != NULL ||
+          options->categories[1].key == NULL ||
+          strcmp(options->categories[1].key, "video") != 0 ||
+          options->categories[1].desc == NULL ||
+          strcmp(options->categories[1].desc, "Video") != 0 ||
+          options->categories[2].key != NULL ||
           options->definitions[0].key == NULL ||
           strcmp(options->definitions[0].key, "corekit_probe_tone") != 0 ||
+          options->definitions[0].category_key == NULL ||
+          strcmp(options->definitions[0].category_key, "audio") != 0 ||
           options->definitions[0].values[0].value == NULL ||
           strcmp(options->definitions[0].values[0].value, "off") != 0 ||
           options->definitions[0].values[1].value == NULL ||
@@ -184,7 +198,18 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
           options->definitions[0].values[2].value != NULL ||
           options->definitions[0].default_value == NULL ||
           strcmp(options->definitions[0].default_value, "on") != 0 ||
-          options->definitions[1].key != NULL)
+          options->definitions[1].key == NULL ||
+          strcmp(options->definitions[1].key, "corekit_probe_palette") != 0 ||
+          options->definitions[1].category_key == NULL ||
+          strcmp(options->definitions[1].category_key, "video") != 0 ||
+          options->definitions[1].values[0].value == NULL ||
+          strcmp(options->definitions[1].values[0].value, "color") != 0 ||
+          options->definitions[1].values[1].value == NULL ||
+          strcmp(options->definitions[1].values[1].value, "monochrome") != 0 ||
+          options->definitions[1].values[2].value != NULL ||
+          options->definitions[1].default_value == NULL ||
+          strcmp(options->definitions[1].default_value, "color") != 0 ||
+          options->definitions[2].key != NULL)
          observations.callback_error = true;
       observations.core_options_v2_calls++;
       return observations.support_optional_interfaces;
@@ -340,11 +365,16 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
    if (command == RETRO_ENVIRONMENT_GET_VARIABLE)
    {
       struct retro_variable *variable = data;
-      if (variable == NULL || variable->key == NULL ||
-          strcmp(variable->key, "corekit_probe_tone") != 0)
+      if (variable == NULL || variable->key == NULL)
          observations.callback_error = true;
+      else if (strcmp(variable->key, "corekit_probe_tone") == 0)
+         variable->value = observations.tone_option_enabled ? tone_on : tone_off;
+      else if (strcmp(variable->key, "corekit_probe_palette") == 0)
+         variable->value = observations.monochrome_option_enabled
+            ? palette_monochrome
+            : palette_color;
       else
-         variable->value = option_value;
+         observations.callback_error = true;
       observations.variable_calls++;
       return observations.support_optional_interfaces;
    }
@@ -384,6 +414,9 @@ static void RETRO_CALLCONV video_callback(
    }
    else
    {
+      const uint32_t *pixels = data;
+      size_t pixel_count = (pitch / sizeof(*pixels)) * height;
+      size_t pixel_index;
       uint64_t hash = hash_bytes(data, pitch * height);
       if (observations.video_calls == 0)
          observations.first_video_hash = hash;
@@ -392,6 +425,19 @@ static void RETRO_CALLCONV video_callback(
       else if (observations.video_calls == 4)
          observations.no_input_reset_video_hash = hash;
       observations.last_video_hash = hash;
+      observations.last_video_monochrome = true;
+      for (pixel_index = 0; pixel_index < pixel_count; pixel_index++)
+      {
+         uint32_t pixel = pixels[pixel_index];
+         uint32_t red = (pixel >> 16) & UINT32_C(0xFF);
+         uint32_t green = (pixel >> 8) & UINT32_C(0xFF);
+         uint32_t blue = pixel & UINT32_C(0xFF);
+         if (red != green || green != blue)
+         {
+            observations.last_video_monochrome = false;
+            break;
+         }
+      }
    }
    observations.video_calls++;
 }
@@ -408,7 +454,6 @@ static void RETRO_CALLCONV audio_sample_callback(int16_t left, int16_t right)
 static size_t RETRO_CALLCONV audio_batch_callback(const int16_t *data, size_t frames)
 {
    size_t index;
-   size_t samples_to_check;
 
    if (data == NULL || frames != 800)
    {
@@ -426,13 +471,16 @@ static size_t RETRO_CALLCONV audio_batch_callback(const int16_t *data, size_t fr
       observations.last_audio_hash = hash;
    }
 
-   samples_to_check = frames < 32 ? frames : 32;
-   for (index = 0; data != NULL && index < samples_to_check; index++)
+   observations.last_audio_silent = true;
+   for (index = 0; data != NULL && index < frames; index++)
    {
       if (data[index * 2] != data[(index * 2) + 1])
          observations.callback_error = true;
       if (data[index * 2] != 0)
+      {
          observations.saw_nonzero_audio = true;
+         observations.last_audio_silent = false;
+      }
    }
 
    observations.audio_batch_calls++;
@@ -707,7 +755,7 @@ static bool validate_system_info(const struct retro_system_info *info)
    return info->library_name != NULL &&
           strcmp(info->library_name, "CoreKit NativeAOT Probe") == 0 &&
           info->library_version != NULL &&
-          strcmp(info->library_version, "0.1.0-phase1") == 0 &&
+          strcmp(info->library_version, "0.1.0-phase3") == 0 &&
           info->valid_extensions != NULL &&
           strcmp(info->valid_extensions, "") == 0 &&
           !info->need_fullpath &&
@@ -1007,8 +1055,8 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
               "audio reset determinism") ||
        !check(observations.variable_update_calls == 6, "option-update polling") ||
        !check(observations.variable_calls ==
-                 (support_optional_interfaces ? 1U : 0U),
-              "updated option query") ||
+                 (support_optional_interfaces ? 4U : 2U),
+              "initial and updated option queries") ||
        !check(observations.audio_video_enable_calls == 6, "audio/video enable queries") ||
        !check(observations.fast_forwarding_calls == 6, "fast-forward queries") ||
        !check(support_optional_interfaces
@@ -1019,6 +1067,34 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
                  ? validate_retained_controller_info()
                  : observations.controller_info == NULL,
               "controller info lifetime through loaded session"))
+      return false;
+
+   observations.provide_input = false;
+   observations.tone_option_enabled = false;
+   observations.monochrome_option_enabled = true;
+   observations.option_update_pending = true;
+   api->retro_run();
+   if (!check(support_optional_interfaces
+                 ? observations.last_audio_silent
+                 : !observations.last_audio_silent,
+              "tone option changes audio output") ||
+       !check(observations.last_video_monochrome == support_optional_interfaces,
+              "palette option changes video output") ||
+       !check(observations.variable_calls ==
+                 (support_optional_interfaces ? 6U : 2U),
+              "runtime option queries"))
+      return false;
+
+   observations.tone_option_enabled = true;
+   observations.monochrome_option_enabled = false;
+   observations.option_update_pending = true;
+   api->retro_run();
+   if (!check(!observations.last_audio_silent, "tone option restores audio output") ||
+       !check(!observations.last_video_monochrome,
+              "palette option restores color output") ||
+       !check(observations.variable_calls ==
+                 (support_optional_interfaces ? 8U : 2U),
+              "restored runtime option queries"))
       return false;
 
    input_poll_before_device_change = observations.input_poll_calls;
@@ -1050,8 +1126,8 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
 
    api->retro_set_audio_sample_batch(NULL);
    api->retro_run();
-   if (!check(observations.video_calls == 9, "video during sample-audio fallback") ||
-       !check(observations.audio_batch_calls == 8, "batch audio disabled for fallback") ||
+   if (!check(observations.video_calls == 11, "video during sample-audio fallback") ||
+       !check(observations.audio_batch_calls == 10, "batch audio disabled for fallback") ||
        !check(observations.audio_sample_calls == 800, "sample-audio fallback"))
       return false;
    api->retro_set_audio_sample_batch(audio_batch_callback);
@@ -1111,7 +1187,7 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
 
 #if defined(__linux__)
    if (!check(observations.log_calls ==
-                (support_optional_interfaces ? 7U : 0U),
+                (support_optional_interfaces ? 11U : 0U),
               "audited logging bridge lifecycle"))
       return false;
 #else
