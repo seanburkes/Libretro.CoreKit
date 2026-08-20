@@ -59,6 +59,7 @@ struct observations
    unsigned pixel_format_calls;
    unsigned core_options_v2_calls;
    unsigned input_descriptor_calls;
+   unsigned controller_info_calls;
    unsigned input_bitmask_calls;
    unsigned system_directory_calls;
    unsigned save_directory_calls;
@@ -97,6 +98,7 @@ struct observations
    bool saw_nonzero_audio;
    bool callback_error;
    const struct retro_input_descriptor *input_descriptors;
+   const struct retro_controller_info *controller_info;
 };
 
 static struct observations observations;
@@ -219,6 +221,23 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
          ? descriptors
          : NULL;
       observations.input_descriptor_calls++;
+      return observations.support_optional_interfaces;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_CONTROLLER_INFO)
+   {
+      const struct retro_controller_info *controllers = data;
+      if (controllers == NULL || controllers[0].types == NULL ||
+          controllers[0].num_types != 1 ||
+          controllers[0].types[0].desc == NULL ||
+          strcmp(controllers[0].types[0].desc, "RetroPad") != 0 ||
+          controllers[0].types[0].id != RETRO_DEVICE_JOYPAD ||
+          controllers[1].types != NULL || controllers[1].num_types != 0)
+         observations.callback_error = true;
+      observations.controller_info = observations.support_optional_interfaces
+         ? controllers
+         : NULL;
+      observations.controller_info_calls++;
       return observations.support_optional_interfaces;
    }
 
@@ -599,6 +618,12 @@ static bool validate_abi_layout(void)
       offsetof(struct retro_input_descriptor, index) == 8 &&
       offsetof(struct retro_input_descriptor, id) == 12 &&
       offsetof(struct retro_input_descriptor, description) == 16 &&
+      sizeof(struct retro_controller_description) == 16 &&
+      offsetof(struct retro_controller_description, desc) == 0 &&
+      offsetof(struct retro_controller_description, id) == 8 &&
+      sizeof(struct retro_controller_info) == 16 &&
+      offsetof(struct retro_controller_info, types) == 0 &&
+      offsetof(struct retro_controller_info, num_types) == 8 &&
       sizeof(struct retro_variable) == 16 &&
       offsetof(struct retro_variable, key) == 0 &&
       offsetof(struct retro_variable, value) == 8 &&
@@ -666,6 +691,29 @@ static bool validate_retained_input_descriptors(void)
           descriptors[3].description == NULL;
 }
 
+static bool validate_retained_controller_info(void)
+{
+   const struct retro_controller_info *controllers = observations.controller_info;
+   return controllers != NULL && controllers[0].types != NULL &&
+          controllers[0].num_types == 1 &&
+          controllers[0].types[0].desc != NULL &&
+          strcmp(controllers[0].types[0].desc, "RetroPad") == 0 &&
+          controllers[0].types[0].id == RETRO_DEVICE_JOYPAD &&
+          controllers[1].types == NULL;
+}
+
+static bool validate_system_info(const struct retro_system_info *info)
+{
+   return info->library_name != NULL &&
+          strcmp(info->library_name, "CoreKit NativeAOT Probe") == 0 &&
+          info->library_version != NULL &&
+          strcmp(info->library_version, "0.1.0-phase1") == 0 &&
+          info->valid_extensions != NULL &&
+          strcmp(info->valid_extensions, "") == 0 &&
+          !info->need_fullpath &&
+          !info->block_extract;
+}
+
 static bool validate_late_callback_registration(
       const struct core_api *api, bool support_optional_interfaces)
 {
@@ -698,6 +746,8 @@ static bool validate_late_callback_registration(
        !check(observations.video_calls == 2, "video after late callback registration") ||
        !check(observations.audio_batch_calls == 2, "audio after late callback registration") ||
        !check(observations.input_poll_calls == 2, "input after late callback registration") ||
+       !check(observations.controller_info_calls == 1,
+              "controller info during preflight content load") ||
        !check(observations.first_video_hash == observations.second_video_hash,
               "missing callbacks do not advance video state") ||
        !check(observations.first_audio_hash == observations.second_audio_hash,
@@ -819,8 +869,16 @@ cleanup:
 static bool run_session(const struct core_api *api, bool support_optional_interfaces)
 {
    struct retro_system_info system_info;
+   struct retro_system_info system_info_after_deinit;
    struct retro_system_av_info av_info;
    struct retro_game_info invalid_game_info;
+   const char *library_name;
+   const char *library_version;
+   const char *valid_extensions;
+   unsigned input_poll_before_device_change;
+   unsigned input_state_before_device_change;
+   unsigned video_before_device_change;
+   unsigned audio_before_device_change;
    unsigned video_calls_before_unloaded_run;
    unsigned frame;
 
@@ -836,14 +894,13 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    api->retro_get_system_info(&system_info);
 
    if (!check(api->retro_api_version() == RETRO_API_VERSION, "API version") ||
-       !check(system_info.library_name != NULL, "library name pointer") ||
-       !check(strcmp(system_info.library_name, "CoreKit NativeAOT Probe") == 0, "library name") ||
-       !check(system_info.library_version != NULL, "library version pointer") ||
-       !check(system_info.valid_extensions != NULL, "valid extensions pointer") ||
-       !check(strcmp(system_info.valid_extensions, "") == 0, "contentless extensions") ||
-       !check(!system_info.need_fullpath, "need_fullpath") ||
-       !check(!system_info.block_extract, "block_extract"))
+       !check(validate_system_info(&system_info), "system metadata before initialization"))
       return false;
+   library_name = system_info.library_name;
+   library_version = system_info.library_version;
+   valid_extensions = system_info.valid_extensions;
+
+   api->retro_set_controller_port_device(0, RETRO_DEVICE_NONE);
 
    api->retro_set_environment(environment_callback);
    api->retro_set_video_refresh(video_callback);
@@ -896,7 +953,9 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
               "extended message path") ||
        !check(observations.message_calls ==
                  (support_optional_interfaces ? 0U : 1U),
-              "legacy message fallback"))
+              "legacy message fallback") ||
+       !check(observations.controller_info_calls == 1,
+              "controller info registration"))
       return false;
 
    memset(&av_info, 0, sizeof(av_info));
@@ -909,7 +968,6 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
        !check(av_info.timing.sample_rate == 48000.0, "sample rate"))
       return false;
 
-   api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
    observations.provide_input = true;
    api->retro_run();
    observations.provide_input = false;
@@ -956,13 +1014,44 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
        !check(support_optional_interfaces
                  ? validate_retained_input_descriptors()
                  : observations.input_descriptors == NULL,
-              "input descriptor lifetime through loaded session"))
+              "input descriptor lifetime through loaded session") ||
+       !check(support_optional_interfaces
+                 ? validate_retained_controller_info()
+                 : observations.controller_info == NULL,
+              "controller info lifetime through loaded session"))
+      return false;
+
+   input_poll_before_device_change = observations.input_poll_calls;
+   input_state_before_device_change = observations.input_state_calls;
+   video_before_device_change = observations.video_calls;
+   audio_before_device_change = observations.audio_batch_calls;
+   observations.provide_input = true;
+   api->retro_set_controller_port_device(0, RETRO_DEVICE_NONE);
+   api->retro_run();
+   observations.provide_input = false;
+   if (!check(observations.input_poll_calls == input_poll_before_device_change,
+              "disabled controller suppresses RetroPad polling") ||
+       !check(observations.input_state_calls == input_state_before_device_change,
+              "disabled controller suppresses RetroPad state reads") ||
+       !check(observations.video_calls == video_before_device_change + 1,
+              "disabled controller still emits video") ||
+       !check(observations.audio_batch_calls == audio_before_device_change + 1,
+              "disabled controller still emits audio"))
+      return false;
+
+   api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+   api->retro_run();
+   if (!check(observations.input_poll_calls == input_poll_before_device_change + 1,
+              "restored controller resumes RetroPad polling") ||
+       !check(observations.input_state_calls == input_state_before_device_change +
+                (support_optional_interfaces ? 1U : 16U),
+              "restored controller resumes RetroPad state reads"))
       return false;
 
    api->retro_set_audio_sample_batch(NULL);
    api->retro_run();
-   if (!check(observations.video_calls == 7, "video during sample-audio fallback") ||
-       !check(observations.audio_batch_calls == 6, "batch audio disabled for fallback") ||
+   if (!check(observations.video_calls == 9, "video during sample-audio fallback") ||
+       !check(observations.audio_batch_calls == 8, "batch audio disabled for fallback") ||
        !check(observations.audio_sample_calls == 800, "sample-audio fallback"))
       return false;
    api->retro_set_audio_sample_batch(audio_batch_callback);
@@ -1006,12 +1095,23 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
    api->retro_deinit();
    api->retro_deinit();
    api->retro_run();
-   if (!check(!api->retro_load_game(NULL), "load after deinitialization is rejected"))
+   api->retro_set_controller_port_device(0, RETRO_DEVICE_NONE);
+   memset(&system_info_after_deinit, 0, sizeof(system_info_after_deinit));
+   api->retro_get_system_info(&system_info_after_deinit);
+   if (!check(!api->retro_load_game(NULL), "load after deinitialization is rejected") ||
+       !check(validate_system_info(&system_info_after_deinit),
+              "system metadata after logical teardown") ||
+       !check(system_info_after_deinit.library_name == library_name,
+              "library name process-lifetime pointer") ||
+       !check(system_info_after_deinit.library_version == library_version,
+              "library version process-lifetime pointer") ||
+       !check(system_info_after_deinit.valid_extensions == valid_extensions,
+              "valid extensions process-lifetime pointer"))
       return false;
 
 #if defined(__linux__)
    if (!check(observations.log_calls ==
-                (support_optional_interfaces ? 5U : 0U),
+                (support_optional_interfaces ? 7U : 0U),
               "audited logging bridge lifecycle"))
       return false;
 #else

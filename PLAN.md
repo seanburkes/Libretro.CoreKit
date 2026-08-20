@@ -237,8 +237,8 @@ interface. Test this independently on every ABI.
 
 ## Phase 2: Reusable Core Host
 
-**Status:** In progress. See [PHASE-2.md](PHASE-2.md) for the implemented first
-slice, current decisions, and validation evidence.
+**Status:** Complete. See [PHASE-2.md](PHASE-2.md) for the implemented host,
+ownership decisions, and validation evidence. Phase 3 is next.
 
 Define a managed contract representing one core implementation. Keep libretro
 concepts visible where they are semantically important, but keep raw pointers

@@ -21,6 +21,7 @@ public enum RetroEnvironmentCommand : uint
     GetContentDirectory = 30,
     GetCoreAssetsDirectory = GetContentDirectory,
     GetSaveDirectory = 31,
+    SetControllerInfo = 35,
     GetLanguage = 39,
     GetAudioVideoEnable = 47 | LibretroConstants.EnvironmentExperimental,
     GetFastForwarding = 49 | LibretroConstants.EnvironmentExperimental,

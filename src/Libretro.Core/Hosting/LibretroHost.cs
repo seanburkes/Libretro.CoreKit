@@ -1,4 +1,6 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
+using System.Text;
 using Libretro.Core.Abi;
 using Libretro.Core.Environment;
 using Libretro.Core.Logging;
@@ -9,6 +11,7 @@ public sealed unsafe class LibretroHost<TCore>
     where TCore : class, ILibretroCore
 {
     private readonly TCore _core;
+    private readonly RetroSystemInfo _systemInfo;
     private RetroFrontendCallbacks _callbacks;
     private RetroLogger _logger;
     private LibretroHostState _state;
@@ -20,12 +23,23 @@ public sealed unsafe class LibretroHost<TCore>
     private PinnedMemoryRegion _systemRam;
     private PinnedMemoryRegion _videoRam;
 
-    public LibretroHost(TCore core) =>
+    public LibretroHost(TCore core)
+    {
         _core = core ?? throw new ArgumentNullException(nameof(core));
+        _systemInfo = CreateSystemInfo(core.SystemMetadata);
+    }
 
     public LibretroHostState State => _state;
 
     public bool HasFailed => _failed;
+
+    public void GetSystemInfo(RetroSystemInfo* info)
+    {
+        if (info != null)
+        {
+            *info = _systemInfo;
+        }
+    }
 
     public void SetEnvironment(delegate* unmanaged[Cdecl]<uint, void*, byte> callback)
     {
@@ -192,6 +206,26 @@ public sealed unsafe class LibretroHost<TCore>
         try
         {
             _core.Reset();
+        }
+        catch
+        {
+            _failed = true;
+        }
+    }
+
+    public void SetControllerPortDevice(uint port, uint device)
+    {
+        if (_state == LibretroHostState.Uninitialized || _failed)
+        {
+            return;
+        }
+
+        try
+        {
+            _core.SetControllerPortDevice(port, device);
+            _ = _logger.Write(
+                RetroLogLevel.Info,
+                "CoreKit controller port device forwarded\n\0"u8);
         }
         catch
         {
@@ -402,6 +436,51 @@ public sealed unsafe class LibretroHost<TCore>
         _rtc.Pin(_core.GetMemory(RetroMemory.Rtc));
         _systemRam.Pin(_core.GetMemory(RetroMemory.SystemRam));
         _videoRam.Pin(_core.GetMemory(RetroMemory.VideoRam));
+    }
+
+    private static RetroSystemInfo CreateSystemInfo(LibretroSystemMetadata metadata)
+    {
+        ValidateMetadataValue(metadata.LibraryName, nameof(metadata.LibraryName), allowEmpty: false);
+        ValidateMetadataValue(
+            metadata.LibraryVersion,
+            nameof(metadata.LibraryVersion),
+            allowEmpty: false);
+        ValidateMetadataValue(
+            metadata.ValidExtensions,
+            nameof(metadata.ValidExtensions),
+            allowEmpty: true);
+
+        return new RetroSystemInfo
+        {
+            LibraryName = AllocateUtf8(metadata.LibraryName),
+            LibraryVersion = AllocateUtf8(metadata.LibraryVersion),
+            ValidExtensions = AllocateUtf8(metadata.ValidExtensions),
+            NeedFullPath = metadata.NeedFullPath ? (byte)1 : (byte)0,
+            BlockExtract = metadata.BlockExtract ? (byte)1 : (byte)0,
+        };
+    }
+
+    private static void ValidateMetadataValue(string? value, string name, bool allowEmpty)
+    {
+        ArgumentNullException.ThrowIfNull(value, name);
+        if ((!allowEmpty && value.Length == 0) || value.Contains('\0'))
+        {
+            throw new ArgumentException(
+                allowEmpty
+                    ? "System metadata cannot contain an embedded null."
+                    : "System metadata cannot be empty or contain an embedded null.",
+                name);
+        }
+    }
+
+    private static byte* AllocateUtf8(string value)
+    {
+        var byteCount = Encoding.UTF8.GetByteCount(value);
+        var data = (byte*)NativeMemory.Alloc((nuint)(byteCount + 1));
+        var destination = new Span<byte>(data, byteCount + 1);
+        var bytesWritten = Encoding.UTF8.GetBytes(value, destination);
+        destination[bytesWritten] = 0;
+        return data;
     }
 
     private void ReleaseContentResources()

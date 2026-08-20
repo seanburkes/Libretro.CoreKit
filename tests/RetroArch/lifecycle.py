@@ -327,6 +327,20 @@ def main():
                 flush=True,
             )
 
+        wait_for_logged(
+            args.log,
+            0,
+            "[INFO] [Environ] SET_CONTROLLER_INFO.",
+            "RetroArch controller-info registration",
+        )
+        wait_for_logged(
+            args.log,
+            0,
+            "[libretro INFO] CoreKit controller port device forwarded",
+            "RetroArch controller-port device forwarding",
+        )
+        print("controller info and device forwarding: accepted", flush=True)
+
         managed_mapped = module_is_mapped(process.pid, args.managed_core)
         quit_frontend(process, sock, args.port)
 

@@ -58,6 +58,20 @@ public unsafe struct RetroInputDescriptor
 }
 
 [StructLayout(LayoutKind.Sequential)]
+public unsafe struct RetroControllerDescription
+{
+    public byte* Description;
+    public uint Id;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct RetroControllerInfo
+{
+    public RetroControllerDescription* Types;
+    public uint NumTypes;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 public unsafe struct RetroVariable
 {
     public byte* Key;

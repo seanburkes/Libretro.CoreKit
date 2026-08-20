@@ -19,10 +19,14 @@ internal static unsafe class ProbeEnvironmentData
     private static readonly byte* OptionOffLabel = Allocate("Disabled\0"u8);
     private static readonly byte* OptionOnLabel = Allocate("Enabled\0"u8);
     private static readonly byte* ReadyMessage = Allocate("CoreKit probe ready\0"u8);
+    private static readonly byte* ControllerDescription = Allocate("RetroPad\0"u8);
     private static readonly RetroInputDescriptor* Descriptors = CreateDescriptors();
+    private static readonly RetroControllerInfo* Controllers = CreateControllers();
     private static readonly RetroCoreOptionsV2* Options = CreateOptions();
 
     public static RetroInputDescriptor* InputDescriptors => Descriptors;
+
+    public static RetroControllerInfo* ControllerInfo => Controllers;
 
     public static RetroCoreOptionsV2* CoreOptions => Options;
 
@@ -65,6 +69,27 @@ internal static unsafe class ProbeEnvironmentData
             Id = (uint)id,
             Description = description,
         };
+
+    private static RetroControllerInfo* CreateControllers()
+    {
+        var descriptions = (RetroControllerDescription*)NativeMemory.Alloc(
+            (nuint)sizeof(RetroControllerDescription));
+        descriptions[0] = new RetroControllerDescription
+        {
+            Description = ControllerDescription,
+            Id = (uint)RetroDevice.Joypad,
+        };
+
+        var controllers = (RetroControllerInfo*)NativeMemory.AllocZeroed(
+            2,
+            (nuint)sizeof(RetroControllerInfo));
+        controllers[0] = new RetroControllerInfo
+        {
+            Types = descriptions,
+            NumTypes = 1,
+        };
+        return controllers;
+    }
 
     private static RetroCoreOptionsV2* CreateOptions()
     {

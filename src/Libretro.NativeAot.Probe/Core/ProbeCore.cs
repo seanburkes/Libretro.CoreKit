@@ -25,6 +25,11 @@ internal sealed unsafe class ProbeCore : ILibretroCore
     private double _tonePhase;
     private int _cursorX;
     private uint _messageInterfaceVersion;
+    private RetroDevice _controllerDevice = RetroDevice.Joypad;
+
+    public LibretroSystemMetadata SystemMetadata => new(
+        "CoreKit NativeAOT Probe",
+        "0.1.0-phase1");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
         LibretroCallbackRequirements.SoftwareCore;
@@ -54,6 +59,7 @@ internal sealed unsafe class ProbeCore : ILibretroCore
             return false;
         }
 
+        _ = context.Environment.SetControllerInfo(ProbeEnvironmentData.ControllerInfo);
         Array.Clear(_saveRam);
         ResetState();
         ShowReadyMessage(context);
@@ -95,7 +101,9 @@ internal sealed unsafe class ProbeCore : ILibretroCore
             _ = context.Environment.GetVariable(ProbeEnvironmentData.CoreOptionKey, out _);
         }
 
-        var input = context.PollRetroPad();
+        var input = _controllerDevice == RetroDevice.Joypad
+            ? context.PollRetroPad()
+            : (ushort)0;
         if (IsPressed(input, RetroJoypadId.Left))
         {
             _cursorX = Math.Max(0, _cursorX - 2);
@@ -169,6 +177,15 @@ internal sealed unsafe class ProbeCore : ILibretroCore
         ResetState();
         Array.Clear(_saveRam);
         _messageInterfaceVersion = 0;
+        _controllerDevice = RetroDevice.Joypad;
+    }
+
+    public void SetControllerPortDevice(uint port, uint device)
+    {
+        if (port == 0)
+        {
+            _controllerDevice = (RetroDevice)device;
+        }
     }
 
     private void RenderFrame()

@@ -24,16 +24,16 @@ language, frame-state hints, no-content support, and pixel-format negotiation.
 Native exports intentionally remain in each concrete NativeAOT publishing
 project.
 
-Phase 2 is in progress. Its first two Linux slices add the reusable core
-contract, strict initialization/content/frame/teardown lifecycle, callback
-validation, typed RetroPad/video/audio frame services, exact caller-buffer
-serialized state, pinned memory regions, and an audited native bridge for the
-variadic logging callback. The NativeAOT probe now consumes that host rather
-than carrying a second lifecycle implementation.
+Phase 2 is complete. The reusable core contract now covers strict
+initialization/content/frame/teardown lifecycle, process-lifetime system
+metadata, controller-port device changes, typed RetroPad/video/audio frame
+services, exact caller-buffer serialized state, pinned memory regions, and an
+audited native bridge for the variadic logging callback. The NativeAOT probe
+consumes that host rather than carrying a second lifecycle implementation.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
-ABI layer, and [PHASE-2.md](PHASE-2.md) tracks the active host work.
+ABI layer, and [PHASE-2.md](PHASE-2.md) records the completed reusable host.
 Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
@@ -54,7 +54,8 @@ stress count with `COREKIT_STRESS_CYCLES=1000`.
 The generated core is intentionally a probe, not the reusable framework. It
 renders a 160x144 XRGB8888 test pattern, submits 48 kHz stereo audio, polls a
 RetroPad, supports no-content loading, round-trips deterministic state, and
-exposes a writable 64-byte save-memory region.
+exposes a writable 64-byte save-memory region. It also advertises one RetroPad
+controller configuration so the frontend exercises device-change forwarding.
 
 ## Run the Linux RetroArch lifecycle gate
 
@@ -69,8 +70,9 @@ profile, switches between the NativeAOT probe and a conventional C control core
 50 times, enforces the 16 MiB RSS-growth ceiling, and verifies normal frontend
 exit through RetroArch's `QUIT` command. It also verifies recovery from missing
 content, content closure, save-memory persistence, and save/load state across
-separate frontend process lifecycles. The pinned source build applies the
-narrow command-poller lifetime fix in
+separate frontend process lifecycles. Static metadata ownership and controller
+registration/device forwarding are checked in the same frontend gate. The
+pinned source build applies the narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set
 `RETROARCH_BINARY` only to reuse a compatible build that includes this fix. CI

@@ -29,7 +29,7 @@ internal static unsafe class ProbeRuntime
 
     public static void Deinitialize() => Host.Deinitialize();
 
-    public static void GetSystemInfo(RetroSystemInfo* info) => ProbeMetadata.Fill(info);
+    public static void GetSystemInfo(RetroSystemInfo* info) => Host.GetSystemInfo(info);
 
     public static void GetSystemAvInfo(RetroSystemAvInfo* info) => Host.GetSystemAvInfo(info);
 
@@ -38,6 +38,9 @@ internal static unsafe class ProbeRuntime
     public static void UnloadGame() => Host.UnloadGame();
 
     public static void Reset() => Host.Reset();
+
+    public static void SetControllerPortDevice(uint port, uint device) =>
+        Host.SetControllerPortDevice(port, device);
 
     public static void Run() => Host.Run();
 

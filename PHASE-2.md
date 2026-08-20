@@ -1,7 +1,8 @@
 # Phase 2: Reusable Core Host
 
-**Status:** In progress. The first two Linux slices are complete: lifecycle and
-frame services, followed by serialized state and stable memory regions.
+**Status:** Complete. The Linux host now owns the frontend lifecycle, frame
+services, serialized state, stable memory regions, static system metadata, and
+controller-port device changes.
 
 ## Goal
 
@@ -11,9 +12,9 @@ target. Other build-matrix targets continue to provide NativeAOT artifact and
 independent C-host evidence only.
 
 The phase is complete when a core implementation can use the host for the full
-frontend lifecycle, software frames, RetroPad input, stereo audio, serialized
-state, and stable memory regions without exposing raw frontend pointers to the
-core implementation.
+frontend lifecycle, static system metadata, controller-device changes, software
+frames, RetroPad input, stereo audio, serialized state, and stable memory
+regions without exposing raw frontend pointers to the core implementation.
 
 ## Decisions
 
@@ -63,6 +64,13 @@ core implementation.
   RTC, system RAM, and video RAM after content load succeeds and releases the
   pins only after content unload. Empty regions remain null/zero; ROM and
   unknown region identifiers are not exposed by this slice.
+- A core supplies static metadata as managed strings once when its process-global
+  host is constructed. The host validates the values, encodes null-terminated
+  UTF-8 into unmanaged memory, and retains those pointers for the module's
+  process lifetime, including logical deinitialization.
+- Controller-port device changes are ignored before initialization and after
+  logical teardown. During initialized and loaded states, the host forwards the
+  raw libretro port and device identifiers and latches any managed exception.
 
 ## Completed first slice
 
@@ -100,22 +108,26 @@ core implementation.
 - [x] Exercise RetroArch state framing, process-reopen state load, save-memory
       persistence, and normal frontend exit.
 
-## Next slice
+## Completed third slice
 
-The next vertical slice is static system metadata ownership:
+- [x] Move `retro_get_system_info` metadata from the probe-specific runtime
+      into the reusable core contract and host.
+- [x] Define process-lifetime UTF-8 ownership for library name, version, and
+      valid extensions without returning movable managed pointers.
+- [x] Add the canonical controller-description and controller-info ABI layouts
+      plus `SET_CONTROLLER_INFO`.
+- [x] Forward controller-port device changes instead of leaving the concrete
+      export as a stub.
+- [x] Ignore controller changes outside the initialized lifecycle and preserve
+      the selected device across reset.
+- [x] Exercise metadata before initialization and after logical teardown in the
+      C oracle, including pointer identity.
+- [x] Prove controller disable/re-enable behavior in the C oracle and verify
+      controller registration plus device forwarding in RetroArch.
 
-1. Move `retro_get_system_info` metadata from the probe-specific runtime into
-   the reusable core contract and host.
-2. Define process-lifetime UTF-8 ownership for library name, version, and valid
-   extensions without returning movable managed pointers.
-3. Forward controller-port device changes instead of leaving the concrete
-   export as a stub.
-4. Exercise metadata before initialization and after logical teardown through
-   both the C oracle and RetroArch.
-
-General path/data content adapters remain a separate follow-up slice. Folding
-them into static metadata would combine process-lifetime and call-lifetime
-ownership for no practical gain.
+General content adapters will be refined against the first real content core.
+Inventing another abstraction before that implementation exists would mostly
+test our ability to predict requirements badly.
 
 ## Pinned frontend harness limitation
 
@@ -139,12 +151,16 @@ pointer lifetime and deterministic restoration.
   points; the logging helper is hidden.
 - The native host exercises accepted and rejected optional interfaces in each
   logical session, verifies RetroArch-style late frame callback registration,
-  and now validates exact state buffers and stable memory pointers.
+  and validates exact state buffers, stable memory pointers, process-lifetime
+  system metadata, and controller-device changes.
 - Linux x64 ASan/UBSan host with leak detection disabled for the process-lifetime
   NativeAOT runtime: 1,000 loads, 2,000 managed sessions, and 1.39 MiB RSS
   growth with no sanitizer error.
 - Pinned RetroArch `7bc72e8735`: recovery scenarios, 50 managed/control core
   switches, 64-byte save RAM, framed 88-byte state save, state load after a
-  process reopen, normal frontend exits, 6.63 MiB peak RSS growth under the
+  process reopen, normal frontend exits, 7.58 MiB peak RSS growth under the
   16 MiB ceiling, and expected process-lifetime module residency after logical
   unload.
+- RetroArch accepts the probe's controller metadata, calls the controller-port
+  native entry point, and uses the host-owned library name for save and state
+  paths across frontend process lifecycles.
