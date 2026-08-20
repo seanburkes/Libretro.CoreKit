@@ -22,11 +22,18 @@ Phase 1 is complete. The reusable `Libretro.Core` assembly now contains the
 environment surface for input, core options v2, directories, messages,
 language, frame-state hints, no-content support, and pixel-format negotiation.
 Native exports intentionally remain in each concrete NativeAOT publishing
-project. Phase 2 will build the reusable core host behind those exports.
+project.
+
+Phase 2 is in progress. Its first Linux slice adds the reusable core contract,
+strict initialization/content/frame/teardown lifecycle, callback validation,
+typed RetroPad/video/audio frame services, and an audited native bridge for the
+variadic logging callback. The NativeAOT probe now consumes that host rather
+than carrying a second lifecycle implementation.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
-the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) tracks the active ABI
-work. Measurements, limitations, and the Phase 0 decision are in
+the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
+ABI layer, and [PHASE-2.md](PHASE-2.md) tracks the active host work.
+Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
 ## Run the Linux Stage 0A probe

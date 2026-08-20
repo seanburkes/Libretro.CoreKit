@@ -18,6 +18,7 @@ public static unsafe class LibretroAbi
         RetroVariable variable = default;
         RetroMessage message = default;
         RetroMessageExtended extendedMessage = default;
+        RetroLogCallback logCallback = default;
         RetroCoreOptionV2Category optionCategory = default;
         RetroCoreOptionV2Definition optionDefinition = default;
         RetroCoreOptionsV2 options = default;
@@ -66,6 +67,8 @@ public static unsafe class LibretroAbi
             Offset(&extendedMessage, &extendedMessage.Target) == 20 &&
             Offset(&extendedMessage, &extendedMessage.Type) == 24 &&
             Offset(&extendedMessage, &extendedMessage.Progress) == 28 &&
+            sizeof(RetroLogCallback) == 8 &&
+            Offset(&logCallback, &logCallback.Log) == 0 &&
             sizeof(RetroCoreOptionValue) == 16 &&
             sizeof(RetroCoreOptionValues) ==
                 LibretroConstants.CoreOptionValuesMaximum * sizeof(RetroCoreOptionValue) &&

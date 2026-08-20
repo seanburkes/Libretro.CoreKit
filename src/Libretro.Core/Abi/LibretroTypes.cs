@@ -84,6 +84,12 @@ public unsafe struct RetroMessageExtended
 }
 
 [StructLayout(LayoutKind.Sequential)]
+public unsafe struct RetroLogCallback
+{
+    public void* Log;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 public unsafe struct RetroCoreOptionValue
 {
     public byte* Value;

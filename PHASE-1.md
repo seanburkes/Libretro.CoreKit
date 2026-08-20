@@ -33,8 +33,9 @@ frontend gates exist elsewhere.
   frontend-defined lifetime.
 - Environment commands are added only with a native-host assertion. Unsupported
   commands remain absent instead of acquiring optimistic placeholder APIs.
-- Variadic libretro logging remains disabled until a small C `"%s"` shim is
-  independently tested on each ABI.
+- Phase 1 deliberately left variadic libretro logging disabled. Phase 2 now
+  supplies the audited C `"%s"` shim for Linux publishing projects; other
+  targets remain disabled until independently tested.
 
 ## Completed scope
 
@@ -64,8 +65,10 @@ frontend gates exist elsewhere.
 - [x] Extend the managed and C layout guards for every new ABI type.
 - [x] Exercise accepted and rejected optional interfaces through paired native
       host sessions while retaining the steady-state allocation tripwire.
-- [x] Keep logging explicitly disabled. Calling a C variadic function through a
-      made-up fixed C# signature is not an implementation strategy.
+- [x] Keep logging explicitly disabled for Phase 1. Phase 2 supersedes this
+      limit on Linux with a tested native bridge; calling a C variadic function
+      through a made-up fixed C# signature remains not an implementation
+      strategy.
 
 ## Deliberate limits
 
@@ -74,8 +77,9 @@ frontend gates exist elsewhere.
   rejected typed command returns `false` without retaining output pointers.
 - Core options v2 is the selected initial option interface. Version 0/1 option
   definition fallbacks are deferred until a supported frontend requires them.
-- Variadic logging has no managed entry point. A future implementation requires
-  a small native `"%s"` shim and independent ABI tests on every target.
+- Phase 1 shipped without a variadic logging entry point. See
+  [PHASE-2.md](PHASE-2.md) for the Linux-only native bridge and remaining
+  platform gates.
 
 ## Open promotion gates
 

@@ -1,4 +1,5 @@
 using Libretro.Core.Abi;
+using Libretro.Core.Logging;
 
 namespace Libretro.Core.Environment;
 
@@ -31,6 +32,14 @@ public readonly unsafe struct RetroEnvironment
 
     public bool SetCoreOptionsV2(RetroCoreOptionsV2* options) =>
         Invoke(RetroEnvironmentCommand.SetCoreOptionsV2, options);
+
+    public bool GetLogInterface(out RetroLogger logger)
+    {
+        RetroLogCallback value = default;
+        var available = Invoke(RetroEnvironmentCommand.GetLogInterface, &value);
+        logger = available && value.Log != null ? new RetroLogger(value.Log) : default;
+        return logger.IsAvailable;
+    }
 
     public bool GetVariableUpdate(out bool updated)
     {

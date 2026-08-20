@@ -1,8 +1,9 @@
 using Libretro.Core.Abi;
+using Libretro.Core.Hosting;
 
 namespace Libretro.NativeAot.Probe.Core;
 
-internal sealed unsafe class ProbeCore
+internal sealed unsafe class ProbeCore : ILibretroCore
 {
     public const int Width = 160;
     public const int Height = 144;
@@ -15,47 +16,54 @@ internal sealed unsafe class ProbeCore
     private readonly uint[] _video = new uint[Width * Height];
     private readonly short[] _audio = new short[AudioFramesPerVideoFrame * 2];
 
-    private CoreLifecycle _lifecycle = CoreLifecycle.Initialized;
     private uint _frameNumber;
     private double _tonePhase;
     private int _cursorX;
+    private uint _messageInterfaceVersion;
 
-    public bool IsContentLoaded => _lifecycle == CoreLifecycle.ContentLoaded;
+    public LibretroCallbackRequirements RequiredFrameCallbacks =>
+        LibretroCallbackRequirements.SoftwareCore;
 
-    public bool LoadContent()
+    public void ConfigureEnvironment(LibretroEnvironmentContext context)
     {
-        if (_lifecycle != CoreLifecycle.Initialized)
+        _ = context.Environment.SetSupportNoGame(true);
+        _ = context.Environment.SetCoreOptionsV2(ProbeEnvironmentData.CoreOptions);
+    }
+
+    public void Initialize(LibretroInitializationContext context)
+    {
+        _ = context.Environment.SetInputDescriptors(ProbeEnvironmentData.InputDescriptors);
+        _ = context.Environment.GetSystemDirectory(out _);
+        _ = context.Environment.GetSaveDirectory(out _);
+        _ = context.Environment.GetContentDirectory(out _);
+        _ = context.Environment.GetCoreAssetsDirectory(out _);
+        _ = context.Environment.GetLanguage(out _);
+        _ = context.Environment.GetMessageInterfaceVersion(out _messageInterfaceVersion);
+    }
+
+    public bool LoadContent(LibretroLoadContext context)
+    {
+        if (!context.Content.IsContentless ||
+            !context.Environment.SetPixelFormat(RetroPixelFormat.Xrgb8888))
         {
             return false;
         }
 
         ResetState();
-        _lifecycle = CoreLifecycle.ContentLoaded;
+        ShowReadyMessage(context);
         return true;
     }
 
     public void UnloadContent()
     {
-        if (_lifecycle != CoreLifecycle.ContentLoaded)
-        {
-            return;
-        }
-
         ResetState();
-        _lifecycle = CoreLifecycle.Initialized;
     }
 
-    public void Reset()
-    {
-        if (_lifecycle == CoreLifecycle.ContentLoaded)
-        {
-            ResetState();
-        }
-    }
+    public void Reset() => ResetState();
 
-    public void GetSystemAvInfo(RetroSystemAvInfo* info)
+    public void GetSystemAvInfo(out RetroSystemAvInfo info)
     {
-        *info = new RetroSystemAvInfo
+        info = new RetroSystemAvInfo
         {
             Geometry = new RetroGameGeometry
             {
@@ -73,64 +81,14 @@ internal sealed unsafe class ProbeCore
         };
     }
 
-    public void Run(
-        RetroFrontendCallbacks callbacks,
-        bool supportsInputBitmasks,
-        RetroAudioVideoEnableFlags audioVideoEnable)
+    public void RunFrame(ref LibretroFrameContext context)
     {
-        if (_lifecycle != CoreLifecycle.ContentLoaded)
+        if (context.CoreOptionsUpdated)
         {
-            return;
+            _ = context.Environment.GetVariable(ProbeEnvironmentData.CoreOptionKey, out _);
         }
 
-        var input = PollInput(callbacks, supportsInputBitmasks);
-        RenderFrame();
-        GenerateAudio(
-            callbacks,
-            IsPressed(input, RetroJoypadId.A),
-            (audioVideoEnable & RetroAudioVideoEnableFlags.Audio) != 0);
-
-        if ((audioVideoEnable & RetroAudioVideoEnableFlags.Video) != 0 &&
-            callbacks.VideoRefresh != null)
-        {
-            fixed (uint* video = _video)
-            {
-                callbacks.VideoRefresh(video, Width, Height, Width * sizeof(uint));
-            }
-        }
-
-        _frameNumber++;
-    }
-
-    private ushort PollInput(RetroFrontendCallbacks callbacks, bool supportsInputBitmasks)
-    {
-        if (callbacks.InputPoll != null)
-        {
-            callbacks.InputPoll();
-        }
-
-        if (callbacks.InputState == null)
-        {
-            return 0;
-        }
-
-        ushort input;
-        if (supportsInputBitmasks)
-        {
-            input = (ushort)callbacks.InputState(
-                0,
-                (uint)RetroDevice.Joypad,
-                0,
-                (uint)RetroJoypadId.Mask);
-        }
-        else
-        {
-            input = 0;
-            input |= ReadButton(callbacks, RetroJoypadId.Left);
-            input |= ReadButton(callbacks, RetroJoypadId.Right);
-            input |= ReadButton(callbacks, RetroJoypadId.A);
-        }
-
+        var input = context.PollRetroPad();
         if (IsPressed(input, RetroJoypadId.Left))
         {
             _cursorX = Math.Max(0, _cursorX - 2);
@@ -141,7 +99,18 @@ internal sealed unsafe class ProbeCore
             _cursorX = Math.Min(Width - 12, _cursorX + 2);
         }
 
-        return input;
+        RenderFrame();
+        GenerateAudio(IsPressed(input, RetroJoypadId.A));
+        _ = context.SubmitAudio(_audio);
+        _ = context.SubmitVideo(_video, Width, Height, Width * sizeof(uint));
+
+        _frameNumber++;
+    }
+
+    public void Deinitialize()
+    {
+        ResetState();
+        _messageInterfaceVersion = 0;
     }
 
     private void RenderFrame()
@@ -171,10 +140,7 @@ internal sealed unsafe class ProbeCore
         }
     }
 
-    private void GenerateAudio(
-        RetroFrontendCallbacks callbacks,
-        bool actionPressed,
-        bool submitAudio)
+    private void GenerateAudio(bool actionPressed)
     {
         var toneAmplitude = 3_000;
         if (actionPressed)
@@ -195,37 +161,25 @@ internal sealed unsafe class ProbeCore
                 _tonePhase -= Tau;
             }
         }
-
-        fixed (short* audio = _audio)
-        {
-            if (!submitAudio)
-            {
-                return;
-            }
-
-            if (callbacks.AudioSampleBatch != null)
-            {
-                _ = callbacks.AudioSampleBatch(audio, AudioFramesPerVideoFrame);
-                return;
-            }
-
-            if (callbacks.AudioSample != null)
-            {
-                for (var frame = 0; frame < AudioFramesPerVideoFrame; frame++)
-                {
-                    callbacks.AudioSample(audio[frame * 2], audio[(frame * 2) + 1]);
-                }
-            }
-        }
     }
-
-    private static ushort ReadButton(RetroFrontendCallbacks callbacks, RetroJoypadId id) =>
-        callbacks.InputState(0, (uint)RetroDevice.Joypad, 0, (uint)id) != 0
-            ? (ushort)(1 << (int)id)
-            : (ushort)0;
 
     private static bool IsPressed(ushort input, RetroJoypadId id) =>
         (input & (1 << (int)id)) != 0;
+
+    private void ShowReadyMessage(LibretroLoadContext context)
+    {
+        if (_messageInterfaceVersion >= 1)
+        {
+            var extendedMessage = ProbeEnvironmentData.ExtendedReadyMessage;
+            if (context.Environment.SetMessageExtended(&extendedMessage))
+            {
+                return;
+            }
+        }
+
+        var legacyMessage = ProbeEnvironmentData.LegacyReadyMessage;
+        _ = context.Environment.SetMessage(&legacyMessage);
+    }
 
     private void ResetState()
     {
