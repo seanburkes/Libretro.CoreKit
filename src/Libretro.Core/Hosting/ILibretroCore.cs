@@ -4,6 +4,8 @@ namespace Libretro.Core.Hosting;
 
 public interface ILibretroCore
 {
+    LibretroSystemMetadata SystemMetadata { get; }
+
     LibretroCallbackRequirements RequiredFrameCallbacks { get; }
 
     void ConfigureEnvironment(LibretroEnvironmentContext context);
@@ -15,6 +17,8 @@ public interface ILibretroCore
     void GetSystemAvInfo(out RetroSystemAvInfo info);
 
     void Reset();
+
+    void SetControllerPortDevice(uint port, uint device);
 
     void RunFrame(ref LibretroFrameContext context);
 

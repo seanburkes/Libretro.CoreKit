@@ -85,8 +85,8 @@ internal static unsafe class LibretroExports
     [UnmanagedCallersOnly(EntryPoint = "retro_set_controller_port_device", CallConvs = [typeof(CallConvCdecl)])]
     public static void SetControllerPortDevice(uint port, uint device)
     {
-        _ = port;
-        _ = device;
+        try { ProbeRuntime.SetControllerPortDevice(port, device); }
+        catch { ProbeRuntime.RecordFailure(); }
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_reset", CallConvs = [typeof(CallConvCdecl)])]

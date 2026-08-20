@@ -27,6 +27,9 @@ public readonly unsafe struct RetroEnvironment
     public bool SetInputDescriptors(RetroInputDescriptor* descriptors) =>
         descriptors != null && Invoke(RetroEnvironmentCommand.SetInputDescriptors, descriptors);
 
+    public bool SetControllerInfo(RetroControllerInfo* controllers) =>
+        controllers != null && Invoke(RetroEnvironmentCommand.SetControllerInfo, controllers);
+
     public bool SupportsInputBitmasks() =>
         Invoke(RetroEnvironmentCommand.GetInputBitmasks, null);
 

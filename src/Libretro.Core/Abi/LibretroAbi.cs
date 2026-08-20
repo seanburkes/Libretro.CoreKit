@@ -15,6 +15,8 @@ public static unsafe class LibretroAbi
         RetroSystemAvInfo avInfo = default;
         RetroGameInfo gameInfo = default;
         RetroInputDescriptor inputDescriptor = default;
+        RetroControllerDescription controllerDescription = default;
+        RetroControllerInfo controllerInfo = default;
         RetroVariable variable = default;
         RetroMessage message = default;
         RetroMessageExtended extendedMessage = default;
@@ -53,6 +55,12 @@ public static unsafe class LibretroAbi
             Offset(&inputDescriptor, &inputDescriptor.Index) == 8 &&
             Offset(&inputDescriptor, &inputDescriptor.Id) == 12 &&
             Offset(&inputDescriptor, &inputDescriptor.Description) == 16 &&
+            sizeof(RetroControllerDescription) == 16 &&
+            Offset(&controllerDescription, &controllerDescription.Description) == 0 &&
+            Offset(&controllerDescription, &controllerDescription.Id) == 8 &&
+            sizeof(RetroControllerInfo) == 16 &&
+            Offset(&controllerInfo, &controllerInfo.Types) == 0 &&
+            Offset(&controllerInfo, &controllerInfo.NumTypes) == 8 &&
             sizeof(RetroVariable) == 16 &&
             Offset(&variable, &variable.Key) == 0 &&
             Offset(&variable, &variable.Value) == 8 &&
