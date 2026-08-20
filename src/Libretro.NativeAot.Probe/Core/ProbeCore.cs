@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using Libretro.Core.Abi;
+using Libretro.Core.Environment;
 using Libretro.Core.Hosting;
+using Libretro.Core.Logging;
 
 namespace Libretro.NativeAot.Probe.Core;
 
@@ -26,10 +29,12 @@ internal sealed unsafe class ProbeCore : ILibretroCore
     private int _cursorX;
     private uint _messageInterfaceVersion;
     private RetroDevice _controllerDevice = RetroDevice.Joypad;
+    private bool _toneEnabled = true;
+    private bool _monochromePalette;
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit NativeAOT Probe",
-        "0.1.0-phase1");
+        "0.1.0-phase3");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
         LibretroCallbackRequirements.SoftwareCore;
@@ -60,6 +65,7 @@ internal sealed unsafe class ProbeCore : ILibretroCore
         }
 
         _ = context.Environment.SetControllerInfo(ProbeEnvironmentData.ControllerInfo);
+        UpdateCoreOptions(context.Environment, context.Logger);
         Array.Clear(_saveRam);
         ResetState();
         ShowReadyMessage(context);
@@ -98,7 +104,7 @@ internal sealed unsafe class ProbeCore : ILibretroCore
     {
         if (context.CoreOptionsUpdated)
         {
-            _ = context.Environment.GetVariable(ProbeEnvironmentData.CoreOptionKey, out _);
+            UpdateCoreOptions(context.Environment, context.Logger);
         }
 
         var input = _controllerDevice == RetroDevice.Joypad
@@ -178,6 +184,8 @@ internal sealed unsafe class ProbeCore : ILibretroCore
         Array.Clear(_saveRam);
         _messageInterfaceVersion = 0;
         _controllerDevice = RetroDevice.Joypad;
+        _toneEnabled = true;
+        _monochromePalette = false;
     }
 
     public void SetControllerPortDevice(uint port, uint device)
@@ -195,13 +203,22 @@ internal sealed unsafe class ProbeCore : ILibretroCore
             for (var x = 0; x < Width; x++)
             {
                 var animatedX = (x + (int)(_frameNumber % Width)) % Width;
-                _video[(y * Width) + x] = (animatedX / 32) switch
+                _video[(y * Width) + x] = _monochromePalette
+                    ? (animatedX / 32) switch
+                    {
+                        0 => 0x00303030u,
+                        1 => 0x00606060u,
+                        2 => 0x00909090u,
+                        3 => 0x00C0C0C0u,
+                        _ => 0x00E0E0E0u,
+                    }
+                    : (animatedX / 32) switch
                 {
-                    0 => 0x00D94A4A,
-                    1 => 0x00E6A23C,
-                    2 => 0x00E5D85C,
-                    3 => 0x0046B96B,
-                    _ => 0x004A78D0,
+                    0 => 0x00D94A4Au,
+                    1 => 0x00E6A23Cu,
+                    2 => 0x00E5D85Cu,
+                    3 => 0x0046B96Bu,
+                    _ => 0x004A78D0u,
                 };
             }
         }
@@ -217,6 +234,12 @@ internal sealed unsafe class ProbeCore : ILibretroCore
 
     private void GenerateAudio(bool actionPressed)
     {
+        if (!_toneEnabled)
+        {
+            Array.Clear(_audio);
+            return;
+        }
+
         var toneAmplitude = 3_000;
         if (actionPressed)
         {
@@ -240,6 +263,61 @@ internal sealed unsafe class ProbeCore : ILibretroCore
 
     private static bool IsPressed(ushort input, RetroJoypadId id) =>
         (input & (1 << (int)id)) != 0;
+
+    private void UpdateCoreOptions(RetroEnvironment environment, RetroLogger logger)
+    {
+        if (environment.GetVariable(ProbeEnvironmentData.ToneOptionKey, out var value))
+        {
+            var enabled = ReadOption(value, "on"u8, "off"u8, _toneEnabled);
+            if (enabled != _toneEnabled)
+            {
+                _toneEnabled = enabled;
+                _ = logger.Write(
+                    RetroLogLevel.Info,
+                    enabled
+                        ? "CoreKit tone option enabled\n\0"u8
+                        : "CoreKit tone option disabled\n\0"u8);
+            }
+        }
+
+        if (environment.GetVariable(ProbeEnvironmentData.PaletteOptionKey, out value))
+        {
+            var monochrome = ReadOption(
+                value,
+                "monochrome"u8,
+                "color"u8,
+                _monochromePalette);
+            if (monochrome != _monochromePalette)
+            {
+                _monochromePalette = monochrome;
+                _ = logger.Write(
+                    RetroLogLevel.Info,
+                    monochrome
+                        ? "CoreKit monochrome palette selected\n\0"u8
+                        : "CoreKit color palette selected\n\0"u8);
+            }
+        }
+    }
+
+    private static bool ReadOption(
+        byte* value,
+        ReadOnlySpan<byte> enabledValue,
+        ReadOnlySpan<byte> disabledValue,
+        bool fallback)
+    {
+        if (value == null)
+        {
+            return fallback;
+        }
+
+        var option = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(value);
+        if (option.SequenceEqual(enabledValue))
+        {
+            return true;
+        }
+
+        return option.SequenceEqual(disabledValue) ? false : fallback;
+    }
 
     private void ShowReadyMessage(LibretroLoadContext context)
     {

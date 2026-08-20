@@ -232,6 +232,7 @@ def parse_args():
     parser.add_argument("--log", required=True)
     parser.add_argument("--state", required=True)
     parser.add_argument("--save", required=True)
+    parser.add_argument("--options", required=True)
     args = parser.parse_args()
     if args.cycles < 1:
         parser.error("--cycles must be positive")
@@ -290,6 +291,12 @@ def main():
             os.remove(path)
         except FileNotFoundError:
             pass
+    os.makedirs(os.path.dirname(args.options), exist_ok=True)
+    with open(args.options, "w", encoding="utf-8") as options_file:
+        options_file.write(
+            'corekit_probe_palette = "monochrome"\n'
+            'corekit_probe_tone = "off"\n'
+        )
     log = open(args.log, "wb")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setblocking(False)
@@ -339,7 +346,22 @@ def main():
             "[libretro INFO] CoreKit controller port device forwarded",
             "RetroArch controller-port device forwarding",
         )
-        print("controller info and device forwarding: accepted", flush=True)
+        wait_for_logged(
+            args.log,
+            0,
+            "[libretro INFO] CoreKit tone option disabled",
+            "RetroArch tone option application",
+        )
+        wait_for_logged(
+            args.log,
+            0,
+            "[libretro INFO] CoreKit monochrome palette selected",
+            "RetroArch palette option application",
+        )
+        print(
+            "controller metadata, device forwarding, and core options: accepted",
+            flush=True,
+        )
 
         managed_mapped = module_is_mapped(process.pid, args.managed_core)
         quit_frontend(process, sock, args.port)

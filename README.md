@@ -31,9 +31,16 @@ services, exact caller-buffer serialized state, pinned memory regions, and an
 audited native bridge for the variadic logging callback. The NativeAOT probe
 consumes that host rather than carrying a second lifecycle implementation.
 
+Phase 3 is complete. The contentless software sample renders deterministic
+XRGB8888 output, generates stereo audio, responds to RetroPad input, and applies
+live tone and palette options without steady-state frame allocations. The C
+oracle proves runtime output changes, while the RetroArch gate proves persisted
+non-default settings through real frontend lifecycles.
+
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
-ABI layer, and [PHASE-2.md](PHASE-2.md) records the completed reusable host.
+ABI layer, [PHASE-2.md](PHASE-2.md) records the completed reusable host, and
+[PHASE-3.md](PHASE-3.md) records the completed software sample.
 Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
@@ -56,6 +63,8 @@ renders a 160x144 XRGB8888 test pattern, submits 48 kHz stereo audio, polls a
 RetroPad, supports no-content loading, round-trips deterministic state, and
 exposes a writable 64-byte save-memory region. It also advertises one RetroPad
 controller configuration so the frontend exercises device-change forwarding.
+Its tone and color/monochrome palette options take effect during a loaded
+session without restarting the core.
 
 ## Run the Linux RetroArch lifecycle gate
 
@@ -71,8 +80,9 @@ profile, switches between the NativeAOT probe and a conventional C control core
 exit through RetroArch's `QUIT` command. It also verifies recovery from missing
 content, content closure, save-memory persistence, and save/load state across
 separate frontend process lifecycles. Static metadata ownership and controller
-registration/device forwarding are checked in the same frontend gate. The
-pinned source build applies the narrow command-poller lifetime fix in
+registration/device forwarding are checked in the same frontend gate, along
+with persisted non-default core options. The pinned source build applies the
+narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set
 `RETROARCH_BINARY` only to reuse a compatible build that includes this fix. CI

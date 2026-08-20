@@ -8,16 +8,26 @@ internal static unsafe class ProbeEnvironmentData
     private static readonly byte* LeftDescription = Allocate("Move left\0"u8);
     private static readonly byte* RightDescription = Allocate("Move right\0"u8);
     private static readonly byte* ActionDescription = Allocate("Increase tone\0"u8);
-    private static readonly byte* CategoryKey = Allocate("audio\0"u8);
-    private static readonly byte* CategoryDescription = Allocate("Audio\0"u8);
-    private static readonly byte* CategoryInformation = Allocate("Probe audio settings.\0"u8);
-    private static readonly byte* OptionKey = Allocate("corekit_probe_tone\0"u8);
-    private static readonly byte* OptionDescription = Allocate("Probe tone\0"u8);
-    private static readonly byte* OptionInformation = Allocate("Enables the generated probe tone.\0"u8);
+    private static readonly byte* AudioCategoryKey = Allocate("audio\0"u8);
+    private static readonly byte* AudioCategoryDescription = Allocate("Audio\0"u8);
+    private static readonly byte* AudioCategoryInformation = Allocate("Probe audio settings.\0"u8);
+    private static readonly byte* VideoCategoryKey = Allocate("video\0"u8);
+    private static readonly byte* VideoCategoryDescription = Allocate("Video\0"u8);
+    private static readonly byte* VideoCategoryInformation = Allocate("Probe video settings.\0"u8);
+    private static readonly byte* ToneOptionKeyValue = Allocate("corekit_probe_tone\0"u8);
+    private static readonly byte* ToneOptionDescription = Allocate("Probe tone\0"u8);
+    private static readonly byte* ToneOptionInformation = Allocate("Enables the generated probe tone.\0"u8);
     private static readonly byte* OptionOff = Allocate("off\0"u8);
     private static readonly byte* OptionOn = Allocate("on\0"u8);
     private static readonly byte* OptionOffLabel = Allocate("Disabled\0"u8);
     private static readonly byte* OptionOnLabel = Allocate("Enabled\0"u8);
+    private static readonly byte* PaletteOptionKeyValue = Allocate("corekit_probe_palette\0"u8);
+    private static readonly byte* PaletteOptionDescription = Allocate("Probe palette\0"u8);
+    private static readonly byte* PaletteOptionInformation = Allocate("Selects the generated test-pattern palette.\0"u8);
+    private static readonly byte* PaletteColor = Allocate("color\0"u8);
+    private static readonly byte* PaletteMonochrome = Allocate("monochrome\0"u8);
+    private static readonly byte* PaletteColorLabel = Allocate("Color bars\0"u8);
+    private static readonly byte* PaletteMonochromeLabel = Allocate("Monochrome\0"u8);
     private static readonly byte* ReadyMessage = Allocate("CoreKit probe ready\0"u8);
     private static readonly byte* ControllerDescription = Allocate("RetroPad\0"u8);
     private static readonly RetroInputDescriptor* Descriptors = CreateDescriptors();
@@ -30,7 +40,9 @@ internal static unsafe class ProbeEnvironmentData
 
     public static RetroCoreOptionsV2* CoreOptions => Options;
 
-    public static byte* CoreOptionKey => OptionKey;
+    public static byte* ToneOptionKey => ToneOptionKeyValue;
+
+    public static byte* PaletteOptionKey => PaletteOptionKeyValue;
 
     public static RetroMessage LegacyReadyMessage => new()
     {
@@ -94,22 +106,28 @@ internal static unsafe class ProbeEnvironmentData
     private static RetroCoreOptionsV2* CreateOptions()
     {
         var categories = (RetroCoreOptionV2Category*)NativeMemory.AllocZeroed(
-            2,
+            3,
             (nuint)sizeof(RetroCoreOptionV2Category));
         categories[0] = new RetroCoreOptionV2Category
         {
-            Key = CategoryKey,
-            Description = CategoryDescription,
-            Information = CategoryInformation,
+            Key = AudioCategoryKey,
+            Description = AudioCategoryDescription,
+            Information = AudioCategoryInformation,
+        };
+        categories[1] = new RetroCoreOptionV2Category
+        {
+            Key = VideoCategoryKey,
+            Description = VideoCategoryDescription,
+            Information = VideoCategoryInformation,
         };
 
         var definitions = (RetroCoreOptionV2Definition*)NativeMemory.AllocZeroed(
-            2,
+            3,
             (nuint)sizeof(RetroCoreOptionV2Definition));
-        definitions[0].Key = OptionKey;
-        definitions[0].Description = OptionDescription;
-        definitions[0].Information = OptionInformation;
-        definitions[0].CategoryKey = CategoryKey;
+        definitions[0].Key = ToneOptionKeyValue;
+        definitions[0].Description = ToneOptionDescription;
+        definitions[0].Information = ToneOptionInformation;
+        definitions[0].CategoryKey = AudioCategoryKey;
         definitions[0].Values[0] = new RetroCoreOptionValue
         {
             Value = OptionOff,
@@ -121,6 +139,22 @@ internal static unsafe class ProbeEnvironmentData
             Label = OptionOnLabel,
         };
         definitions[0].DefaultValue = OptionOn;
+
+        definitions[1].Key = PaletteOptionKeyValue;
+        definitions[1].Description = PaletteOptionDescription;
+        definitions[1].Information = PaletteOptionInformation;
+        definitions[1].CategoryKey = VideoCategoryKey;
+        definitions[1].Values[0] = new RetroCoreOptionValue
+        {
+            Value = PaletteColor,
+            Label = PaletteColorLabel,
+        };
+        definitions[1].Values[1] = new RetroCoreOptionValue
+        {
+            Value = PaletteMonochrome,
+            Label = PaletteMonochromeLabel,
+        };
+        definitions[1].DefaultValue = PaletteColor;
 
         var options = (RetroCoreOptionsV2*)NativeMemory.Alloc((nuint)sizeof(RetroCoreOptionsV2));
         *options = new RetroCoreOptionsV2
