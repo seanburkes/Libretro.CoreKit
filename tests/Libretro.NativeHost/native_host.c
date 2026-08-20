@@ -718,13 +718,110 @@ static bool validate_late_callback_registration(
    return true;
 }
 
+static bool validate_state_and_memory(const struct core_api *api)
+{
+   const size_t expected_state_size = 88;
+   const size_t expected_save_ram_size = 64;
+   uint8_t *state;
+   uint8_t *save_ram;
+   void *save_ram_pointer;
+   uint64_t expected_video_hash;
+   uint64_t expected_audio_hash;
+   bool valid = false;
+
+   if (!check(api->retro_serialize_size() == expected_state_size,
+              "serialized state size"))
+      return false;
+
+   save_ram_pointer = api->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+   save_ram = (uint8_t *)save_ram_pointer;
+   if (!check(save_ram != NULL, "save RAM data") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM) ==
+                expected_save_ram_size,
+              "save RAM size") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_RTC) == NULL,
+              "unsupported RTC data") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_RTC) == 0,
+              "unsupported RTC size") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM) == NULL,
+              "unsupported system RAM data") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM) == 0,
+              "unsupported system RAM size") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_VIDEO_RAM) == NULL,
+              "unsupported video RAM data") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_VIDEO_RAM) == 0,
+              "unsupported video RAM size") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_ROM) == NULL,
+              "unsupported ROM data") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_ROM) == 0,
+              "unsupported ROM size"))
+      return false;
+
+   save_ram[7] = 0xA5;
+   api->retro_reset();
+   if (!check(api->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM) ==
+                save_ram_pointer,
+              "save RAM pointer survives reset") ||
+       !check(save_ram[7] == 0xA5, "save RAM survives reset"))
+      return false;
+
+   state = (uint8_t *)malloc(expected_state_size);
+   if (!check(state != NULL, "state buffer allocation"))
+      return false;
+
+   if (!check(!api->retro_serialize(NULL, expected_state_size),
+              "serialize rejects null data") ||
+       !check(!api->retro_serialize(state, expected_state_size - 1),
+              "serialize rejects short buffer") ||
+       !check(api->retro_serialize(state, expected_state_size),
+              "serialize state") ||
+       !check(!api->retro_unserialize(NULL, expected_state_size),
+              "unserialize rejects null data") ||
+       !check(!api->retro_unserialize(state, expected_state_size - 1),
+              "unserialize rejects short buffer"))
+      goto cleanup;
+
+   state[0] ^= 0xFF;
+   if (!check(!api->retro_unserialize(state, expected_state_size),
+              "unserialize rejects invalid state") ||
+       !check(save_ram[7] == 0xA5,
+              "invalid state does not mutate save RAM"))
+      goto cleanup;
+   state[0] ^= 0xFF;
+
+   api->retro_run();
+   expected_video_hash = observations.last_video_hash;
+   expected_audio_hash = observations.last_audio_hash;
+   save_ram[7] = 0x5A;
+
+   if (!check(api->retro_unserialize(state, expected_state_size),
+              "unserialize state") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM) ==
+                save_ram_pointer,
+              "save RAM pointer survives state load") ||
+       !check(save_ram[7] == 0xA5, "state restores save RAM"))
+      goto cleanup;
+
+   api->retro_run();
+   if (!check(observations.last_video_hash == expected_video_hash,
+              "state restores deterministic video") ||
+       !check(observations.last_audio_hash == expected_audio_hash,
+              "state restores deterministic audio"))
+      goto cleanup;
+
+   valid = true;
+
+cleanup:
+   free(state);
+   return valid;
+}
+
 static bool run_session(const struct core_api *api, bool support_optional_interfaces)
 {
    struct retro_system_info system_info;
    struct retro_system_av_info av_info;
    struct retro_game_info invalid_game_info;
    unsigned video_calls_before_unloaded_run;
-   uint8_t scratch = 0;
    unsigned frame;
 
    if (!validate_late_callback_registration(api, support_optional_interfaces))
@@ -884,18 +981,22 @@ static bool run_session(const struct core_api *api, bool support_optional_interf
          return false;
    }
 
-   if (!check(api->retro_serialize_size() == 0, "unsupported serialize size") ||
-       !check(!api->retro_serialize(&scratch, sizeof(scratch)), "unsupported serialize") ||
-       !check(!api->retro_unserialize(&scratch, sizeof(scratch)), "unsupported unserialize") ||
+   if (!validate_state_and_memory(api) ||
        !check(!api->retro_load_game_special(0, NULL, 0), "unsupported special load") ||
-       !check(api->retro_get_region() == RETRO_REGION_NTSC, "region") ||
-       !check(api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM) == NULL, "unsupported memory data") ||
-       !check(api->retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM) == 0, "unsupported memory size"))
+       !check(api->retro_get_region() == RETRO_REGION_NTSC, "region"))
       return false;
 
    api->retro_cheat_reset();
    api->retro_cheat_set(0, false, NULL);
    api->retro_unload_game();
+
+   if (!check(api->retro_serialize_size() == 0,
+              "serialized state unavailable after unload") ||
+       !check(api->retro_get_memory_data(RETRO_MEMORY_SAVE_RAM) == NULL,
+              "save RAM data unavailable after unload") ||
+       !check(api->retro_get_memory_size(RETRO_MEMORY_SAVE_RAM) == 0,
+              "save RAM size unavailable after unload"))
+      return false;
 
    video_calls_before_unloaded_run = observations.video_calls;
    api->retro_run();

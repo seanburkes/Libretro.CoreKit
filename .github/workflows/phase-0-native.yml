@@ -118,12 +118,10 @@ jobs:
         run: >-
           sudo apt-get update &&
           sudo apt-get install -y
-          clang zlib1g-dev libsdl2-dev libx11-xcb-dev
+          clang zlib1g-dev libsdl2-dev libx11-xcb-dev xvfb
 
       - name: Run RetroArch lifecycle gate
-        env:
-          COREKIT_RETROARCH_CONFIG: ${{ github.workspace }}/tests/RetroArch/headless.cfg
-        run: ./eng/run-retroarch-phase-0.sh
+        run: xvfb-run -a ./eng/run-retroarch-phase-0.sh
 
       - name: Upload RetroArch evidence
         if: always()
@@ -133,4 +131,6 @@ jobs:
           path: |
             artifacts/retroarch/*/lifecycle.log
             artifacts/retroarch/*/lifecycle-summary.log
+            artifacts/retroarch/*/profile/config/retroarch/saves/**/*.srm
+            artifacts/retroarch/*/profile/config/retroarch/states/**/*.state
           if-no-files-found: warn

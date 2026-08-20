@@ -104,22 +104,24 @@ internal static unsafe class LibretroExports
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_serialize_size", CallConvs = [typeof(CallConvCdecl)])]
-    public static nuint SerializeSize() => 0;
+    public static nuint SerializeSize()
+    {
+        try { return ProbeRuntime.SerializeSize(); }
+        catch { ProbeRuntime.RecordFailure(); return 0; }
+    }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_serialize", CallConvs = [typeof(CallConvCdecl)])]
     public static byte Serialize(void* data, nuint size)
     {
-        _ = data;
-        _ = size;
-        return 0;
+        try { return ProbeRuntime.Serialize(data, size); }
+        catch { ProbeRuntime.RecordFailure(); return 0; }
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_unserialize", CallConvs = [typeof(CallConvCdecl)])]
     public static byte Unserialize(void* data, nuint size)
     {
-        _ = data;
-        _ = size;
-        return 0;
+        try { return ProbeRuntime.Unserialize(data, size); }
+        catch { ProbeRuntime.RecordFailure(); return 0; }
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_cheat_reset", CallConvs = [typeof(CallConvCdecl)])]
@@ -164,14 +166,14 @@ internal static unsafe class LibretroExports
     [UnmanagedCallersOnly(EntryPoint = "retro_get_memory_data", CallConvs = [typeof(CallConvCdecl)])]
     public static void* GetMemoryData(uint id)
     {
-        _ = id;
-        return null;
+        try { return ProbeRuntime.GetMemoryData(id); }
+        catch { ProbeRuntime.RecordFailure(); return null; }
     }
 
     [UnmanagedCallersOnly(EntryPoint = "retro_get_memory_size", CallConvs = [typeof(CallConvCdecl)])]
     public static nuint GetMemorySize(uint id)
     {
-        _ = id;
-        return 0;
+        try { return ProbeRuntime.GetMemorySize(id); }
+        catch { ProbeRuntime.RecordFailure(); return 0; }
     }
 }

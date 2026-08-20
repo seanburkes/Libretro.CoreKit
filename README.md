@@ -24,9 +24,10 @@ language, frame-state hints, no-content support, and pixel-format negotiation.
 Native exports intentionally remain in each concrete NativeAOT publishing
 project.
 
-Phase 2 is in progress. Its first Linux slice adds the reusable core contract,
-strict initialization/content/frame/teardown lifecycle, callback validation,
-typed RetroPad/video/audio frame services, and an audited native bridge for the
+Phase 2 is in progress. Its first two Linux slices add the reusable core
+contract, strict initialization/content/frame/teardown lifecycle, callback
+validation, typed RetroPad/video/audio frame services, exact caller-buffer
+serialized state, pinned memory regions, and an audited native bridge for the
 variadic logging callback. The NativeAOT probe now consumes that host rather
 than carrying a second lifecycle implementation.
 
@@ -52,7 +53,8 @@ stress count with `COREKIT_STRESS_CYCLES=1000`.
 
 The generated core is intentionally a probe, not the reusable framework. It
 renders a 160x144 XRGB8888 test pattern, submits 48 kHz stereo audio, polls a
-RetroPad, supports no-content loading, and safely stubs unsupported features.
+RetroPad, supports no-content loading, round-trips deterministic state, and
+exposes a writable 64-byte save-memory region.
 
 ## Run the Linux RetroArch lifecycle gate
 
@@ -66,11 +68,15 @@ The script builds the pinned RetroArch revision when needed, uses an isolated
 profile, switches between the NativeAOT probe and a conventional C control core
 50 times, enforces the 16 MiB RSS-growth ceiling, and verifies normal frontend
 exit through RetroArch's `QUIT` command. It also verifies recovery from missing
-content, content closure, and unsupported save/load-state commands. The pinned
-source build applies the narrow command-poller lifetime fix in
+content, content closure, save-memory persistence, and save/load state across
+separate frontend process lifecycles. The pinned source build applies the
+narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set
 `RETROARCH_BINARY` only to reuse a compatible build that includes this fix. CI
-supplies `tests/RetroArch/headless.cfg` to isolate the loader lifecycle from
-virtual display and audio drivers; the default local configuration uses SDL2
-for the video and audio smoke path.
+runs the SDL2 video/audio path under Xvfb so the timed frontend loop remains
+fully unattended. The managed/control switch loop uses
+RetroArch's `noload-nosave` mode because the pinned command harness wedges its
+dummy-core transition when either conventional C or NativeAOT cores advertise
+save RAM; normal persistence is validated in dedicated save/load/quit
+lifecycles instead.

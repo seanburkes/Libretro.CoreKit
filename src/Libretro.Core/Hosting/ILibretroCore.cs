@@ -18,6 +18,14 @@ public interface ILibretroCore
 
     void RunFrame(ref LibretroFrameContext context);
 
+    int SerializedStateSize { get; }
+
+    bool Serialize(Span<byte> destination);
+
+    bool Unserialize(ReadOnlySpan<byte> source);
+
+    Memory<byte> GetMemory(RetroMemory region);
+
     void UnloadContent();
 
     void Deinitialize();

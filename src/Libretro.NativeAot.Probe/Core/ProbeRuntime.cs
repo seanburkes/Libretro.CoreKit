@@ -41,5 +41,15 @@ internal static unsafe class ProbeRuntime
 
     public static void Run() => Host.Run();
 
+    public static nuint SerializeSize() => Host.SerializeSize();
+
+    public static byte Serialize(void* data, nuint size) => Host.Serialize(data, size);
+
+    public static byte Unserialize(void* data, nuint size) => Host.Unserialize(data, size);
+
+    public static void* GetMemoryData(uint id) => Host.GetMemoryData(id);
+
+    public static nuint GetMemorySize(uint id) => Host.GetMemorySize(id);
+
     public static void RecordFailure() => Host.RecordFailure();
 }

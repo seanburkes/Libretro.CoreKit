@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using Libretro.Core.Abi;
 using Libretro.Core.Hosting;
 
@@ -10,11 +11,15 @@ internal sealed unsafe class ProbeCore : ILibretroCore
     public const int AudioSampleRate = 48_000;
     public const int AudioFramesPerVideoFrame = 800;
     public const double FramesPerSecond = 60.0;
+    public const int SaveRamSize = 64;
+    public const int StateSize = 24 + SaveRamSize;
 
     private const double Tau = Math.PI * 2.0;
+    private const uint StateMagic = 0x31534B43;
 
     private readonly uint[] _video = new uint[Width * Height];
     private readonly short[] _audio = new short[AudioFramesPerVideoFrame * 2];
+    private readonly byte[] _saveRam = new byte[SaveRamSize];
 
     private uint _frameNumber;
     private double _tonePhase;
@@ -49,6 +54,7 @@ internal sealed unsafe class ProbeCore : ILibretroCore
             return false;
         }
 
+        Array.Clear(_saveRam);
         ResetState();
         ShowReadyMessage(context);
         return true;
@@ -57,6 +63,7 @@ internal sealed unsafe class ProbeCore : ILibretroCore
     public void UnloadContent()
     {
         ResetState();
+        Array.Clear(_saveRam);
     }
 
     public void Reset() => ResetState();
@@ -104,12 +111,63 @@ internal sealed unsafe class ProbeCore : ILibretroCore
         _ = context.SubmitAudio(_audio);
         _ = context.SubmitVideo(_video, Width, Height, Width * sizeof(uint));
 
+        _saveRam[0]++;
         _frameNumber++;
     }
+
+    public int SerializedStateSize => StateSize;
+
+    public bool Serialize(Span<byte> destination)
+    {
+        if (destination.Length != StateSize)
+        {
+            return false;
+        }
+
+        BinaryPrimitives.WriteUInt32LittleEndian(destination, StateMagic);
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], _frameNumber);
+        BinaryPrimitives.WriteInt32LittleEndian(destination[8..], _cursorX);
+        BinaryPrimitives.WriteInt64LittleEndian(
+            destination[12..],
+            BitConverter.DoubleToInt64Bits(_tonePhase));
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[20..], SaveRamSize);
+        _saveRam.CopyTo(destination[24..]);
+        return true;
+    }
+
+    public bool Unserialize(ReadOnlySpan<byte> source)
+    {
+        if (source.Length != StateSize ||
+            BinaryPrimitives.ReadUInt32LittleEndian(source) != StateMagic ||
+            BinaryPrimitives.ReadUInt32LittleEndian(source[20..]) != SaveRamSize)
+        {
+            return false;
+        }
+
+        var frameNumber = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
+        var cursorX = BinaryPrimitives.ReadInt32LittleEndian(source[8..]);
+        var tonePhase = BitConverter.Int64BitsToDouble(
+            BinaryPrimitives.ReadInt64LittleEndian(source[12..]));
+        if (cursorX < 0 || cursorX > Width - 12 ||
+            !double.IsFinite(tonePhase) || tonePhase < 0 || tonePhase >= Tau)
+        {
+            return false;
+        }
+
+        _frameNumber = frameNumber;
+        _cursorX = cursorX;
+        _tonePhase = tonePhase;
+        source[24..].CopyTo(_saveRam);
+        return true;
+    }
+
+    public Memory<byte> GetMemory(RetroMemory region) =>
+        region == RetroMemory.SaveRam ? _saveRam : Memory<byte>.Empty;
 
     public void Deinitialize()
     {
         ResetState();
+        Array.Clear(_saveRam);
         _messageInterfaceVersion = 0;
     }
 

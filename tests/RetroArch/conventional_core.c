@@ -8,6 +8,7 @@
 #define FRAME_WIDTH 160u
 #define FRAME_HEIGHT 144u
 #define AUDIO_FRAMES 800u
+#define SAVE_RAM_SIZE 64u
 
 static retro_environment_t environment_callback;
 static retro_video_refresh_t video_callback;
@@ -15,6 +16,7 @@ static retro_audio_sample_batch_t audio_batch_callback;
 static retro_input_poll_t input_poll_callback;
 static uint32_t frame[FRAME_WIDTH * FRAME_HEIGHT];
 static int16_t audio[AUDIO_FRAMES * 2u];
+static uint8_t save_ram[SAVE_RAM_SIZE];
 static bool content_loaded;
 
 void retro_set_environment(retro_environment_t callback)
@@ -110,6 +112,7 @@ void retro_run(void)
    if (video_callback)
       video_callback(frame, FRAME_WIDTH, FRAME_HEIGHT,
             FRAME_WIDTH * sizeof(uint32_t));
+   save_ram[0]++;
 }
 
 size_t retro_serialize_size(void)
@@ -149,6 +152,7 @@ bool retro_load_game(const struct retro_game_info *game)
    if (!environment_callback ||
        !environment_callback(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &format))
       return false;
+   memset(save_ram, 0, sizeof(save_ram));
    content_loaded = true;
    return true;
 }
@@ -174,12 +178,10 @@ unsigned retro_get_region(void)
 
 void *retro_get_memory_data(unsigned id)
 {
-   (void)id;
-   return NULL;
+   return content_loaded && id == RETRO_MEMORY_SAVE_RAM ? save_ram : NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
-   (void)id;
-   return 0;
+   return content_loaded && id == RETRO_MEMORY_SAVE_RAM ? sizeof(save_ram) : 0;
 }
