@@ -40,9 +40,9 @@ non-default settings through real frontend lifecycles.
 Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
 in-memory `.ch8` content loading, standard instruction execution under a fixed
 modern baseline, 60 Hz timers, deterministic random behavior, 64x32 XRGB8888
-rendering, RetroPad mapping, timed silent audio batches, reset, pinned system
-RAM, and transactional state loading. Audible sound, full keypad mapping, and
-quirk options are deliberately still open.
+rendering, RetroPad mapping, deterministic sound-timer audio, reset, pinned
+system RAM, and transactional state loading. Full keypad mapping and quirk
+options are deliberately still open.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -83,9 +83,10 @@ session without restarting the core.
 This publishes `corekit_chip8_libretro.so` and runs its focused independent C
 host under ASan/UBSan. The host loads deterministic in-memory `.ch8` test
 content, verifies arithmetic, memory, font, timer, key-wait, random, drawing,
-and RetroPad-sensitive behavior, and round-trips the versioned state while
-checking stable CHIP-8 system RAM. Use `COREKIT_CHIP8_CYCLES=1000` for the full
-loader stress count.
+audible/silent stereo batches, and RetroPad-sensitive behavior, and round-trips
+the versioned state including deterministic audio phase while checking stable
+CHIP-8 system RAM. Use `COREKIT_CHIP8_CYCLES=1000` for the full loader stress
+count.
 
 ## Run the Linux RetroArch lifecycle gate
 
@@ -102,9 +103,9 @@ exit through RetroArch's `QUIT` command. It also verifies recovery from missing
 content, content closure, save-memory persistence, and save/load state across
 separate frontend process lifecycles. Static metadata ownership and controller
 registration/device forwarding are checked in the same frontend gate, along
-with persisted non-default core options. It also loads, resets, and unloads the
-CHIP-8 core with deterministic test content. The pinned source build applies the
-narrow command-poller lifetime fix in
+with persisted non-default core options. It also loads CHIP-8 test content that
+starts the sound timer, then resets and unloads the core. The pinned source
+build applies the narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set
 `RETROARCH_BINARY` only to reuse a compatible build that includes this fix. CI

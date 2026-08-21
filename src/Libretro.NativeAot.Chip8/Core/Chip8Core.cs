@@ -11,18 +11,21 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     public const int MemorySize = 4_096;
     public const int ProgramStart = 0x200;
     public const int MaximumProgramSize = MemorySize - ProgramStart;
-    public const int StateSize = 68 + (Width * Height) + MemorySize;
+    public const int StateSize = 72 + (Width * Height) + MemorySize;
 
     private const int InstructionsPerFrame = 12;
     private const int AudioFramesPerVideoFrame = 800;
+    private const uint AudioSampleRate = 48_000;
+    private const uint ToneFrequency = 440;
+    private const int ToneAmplitude = 6_000;
     private const int FontStart = 0x50;
-    private const int RegisterOffset = 20;
-    private const int StackOffset = 36;
-    private const int DisplayOffset = 68;
+    private const int RegisterOffset = 24;
+    private const int StackOffset = 40;
+    private const int DisplayOffset = 72;
     private const int MemoryOffset = DisplayOffset + (Width * Height);
     private const uint InitialRandomState = 0xC0DEF00D;
-    private const uint StateMagic = 0x32533843;
-    private const ushort StateVersion = 2;
+    private const uint StateMagic = 0x33533843;
+    private const ushort StateVersion = 3;
 
     private static ReadOnlySpan<byte> FontData =>
     [
@@ -57,6 +60,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private ushort _programCounter;
     private ushort _indexRegister;
     private uint _randomState;
+    private uint _audioPhase;
     private byte _delayTimer;
     private byte _soundTimer;
     private byte _stackPointer;
@@ -65,7 +69,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit CHIP-8",
-        "0.2.0-phase4",
+        "0.3.0-phase4",
         "ch8");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
@@ -115,7 +119,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
             Timing = new RetroSystemTiming
             {
                 FramesPerSecond = 60.0,
-                SampleRate = 48_000.0,
+                SampleRate = AudioSampleRate,
             },
         };
     }
@@ -140,6 +144,8 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         {
             _halted = !ExecuteInstruction();
         }
+
+        GenerateAudio(_soundTimer != 0);
 
         if (_delayTimer != 0)
         {
@@ -180,6 +186,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         destination[17] = _halted ? (byte)1 : (byte)0;
         destination[18] = 0;
         destination[19] = 0;
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[20..], _audioPhase);
         _registers.CopyTo(destination[RegisterOffset..]);
         for (var index = 0; index < _stack.Length; index++)
         {
@@ -205,11 +212,12 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         var programCounter = BinaryPrimitives.ReadUInt16LittleEndian(source[6..]);
         var indexRegister = BinaryPrimitives.ReadUInt16LittleEndian(source[8..]);
         var randomState = BinaryPrimitives.ReadUInt32LittleEndian(source[10..]);
+        var audioPhase = BinaryPrimitives.ReadUInt32LittleEndian(source[20..]);
         var stackPointer = source[16];
         var halted = source[17];
         if ((programCounter & 1) != 0 || programCounter > MemorySize ||
             (programCounter > MemorySize - 2 && halted == 0) ||
-            indexRegister >= MemorySize || randomState == 0 ||
+            indexRegister >= MemorySize || randomState == 0 || audioPhase >= AudioSampleRate ||
             stackPointer > _stack.Length || halted > 1 ||
             source[18] != 0 || source[19] != 0)
         {
@@ -237,6 +245,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         _programCounter = programCounter;
         _indexRegister = indexRegister;
         _randomState = randomState;
+        _audioPhase = audioPhase;
         _delayTimer = source[14];
         _soundTimer = source[15];
         _stackPointer = stackPointer;
@@ -508,6 +517,30 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         return (byte)_randomState;
     }
 
+    private void GenerateAudio(bool soundActive)
+    {
+        if (!soundActive)
+        {
+            Array.Clear(_audio);
+            return;
+        }
+
+        for (var frame = 0; frame < AudioFramesPerVideoFrame; frame++)
+        {
+            var sample = (short)(_audioPhase < AudioSampleRate / 2
+                ? ToneAmplitude
+                : -ToneAmplitude);
+            _audio[frame * 2] = sample;
+            _audio[(frame * 2) + 1] = sample;
+
+            _audioPhase += ToneFrequency;
+            if (_audioPhase >= AudioSampleRate)
+            {
+                _audioPhase -= AudioSampleRate;
+            }
+        }
+    }
+
     private bool DrawSprite(int originX, int originY, int height)
     {
         if (height == 0 || _indexRegister + height > MemorySize)
@@ -590,6 +623,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         _programCounter = ProgramStart;
         _indexRegister = 0;
         _randomState = InitialRandomState;
+        _audioPhase = 0;
         _delayTimer = 0;
         _soundTimer = 0;
         _stackPointer = 0;

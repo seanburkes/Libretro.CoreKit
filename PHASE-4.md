@@ -1,9 +1,9 @@
 # Phase 4: CHIP-8 Reference Core
 
-**Status:** In progress. Two vertical slices now cover bounded `.ch8` content,
+**Status:** In progress. Three vertical slices now cover bounded `.ch8` content,
 the standard instruction set under a documented fixed interpreter baseline,
-60 Hz timers, deterministic random behavior, RetroPad input, video, timed
-silent audio, reset, and serialized state.
+60 Hz timers, deterministic random behavior, RetroPad input, video, audible
+sound-timer output, reset, and serialized state.
 
 ## Implemented slices
 
@@ -33,16 +33,17 @@ Implemented behavior:
 - Halt the virtual machine deterministically on an unsupported or invalid
   instruction without throwing through the native ABI boundary.
 - Render the 64x32 monochrome display directly as XRGB8888.
-- Submit one preallocated 800-frame silent stereo batch per video frame at
-  48 kHz. Audible sound-timer output is deferred, but frontend audio timing is
-  not fictional in the meantime.
+- Submit one preallocated 800-frame stereo batch per video frame at 48 kHz.
+  While the sound timer is nonzero, emit a deterministic 440 Hz square wave at
+  amplitude +/-6,000; otherwise emit silence. The integer audio phase pauses
+  during silence and resets with the virtual machine.
 - Map RetroPad directions to CHIP-8 keys `2`, `8`, `4`, and `6`; A maps to `5`
   and B maps to `0`.
 - Expose the pinned 4 KiB CHIP-8 address space as system RAM.
 - Serialize registers, stack, display, memory, program counter, index register,
-  timers, random state, stack pointer, and halt state in a validated 6,212-byte
-  version-2 format. Version-1 states are deliberately rejected rather than
-  guessed into a different machine state.
+  timers, random state, audio phase, stack pointer, and halt state in a
+  validated 6,216-byte version-3 format. Version-2 states are deliberately
+  rejected rather than guessed into a different audio timeline.
 - Preserve the originally loaded content separately so reset restores program
   memory even after execution or frontend memory inspection changes it.
 
@@ -51,17 +52,20 @@ Implemented behavior:
 The focused independent C host resolves all 25 mandatory exports and verifies:
 
 - rejected call order plus contentless, truncated, and oversized content;
-- content copying, XRGB8888 geometry, silent audio timing, and RetroPad polling;
+- content copying, XRGB8888 geometry, silent/audio-timer batches, and RetroPad
+  polling;
 - input-sensitive program output and controller disable behavior;
 - arithmetic, skip, transfer, BCD, font, indexed-jump, timer, key-wait, and
   deterministic random instruction behavior through system-RAM observations;
 - exact state size, transactional malformed-state rejection, deterministic
-  timer/random replay, reset/state restoration, and stable system-RAM pointers;
+  timer/random/audio replay, reset/state restoration, and stable system-RAM
+  pointers;
 - repeated logical teardown and loader close/reopen under ASan/UBSan.
 
-The pinned RetroArch gate additionally loads deterministic `.ch8` test content,
-runs frames, resets, unloads the core, and observes the managed content-load
-lifecycle marker. Linux x64 remains the only RetroArch-supported target.
+The pinned RetroArch gate additionally loads deterministic `.ch8` test content
+that starts the sound timer, runs frames through the SDL2 dummy audio path,
+resets, unloads the core, and observes the managed content-load lifecycle
+marker. Linux x64 remains the only RetroArch-supported target.
 
 Current evidence with .NET SDK 10.0.110:
 
@@ -70,13 +74,12 @@ Current evidence with .NET SDK 10.0.110:
   runtime and no sanitizer diagnostic.
 - Pinned RetroArch `7bc72e8735` accepts the CHIP-8 content lifecycle before the
   existing 50 managed/control switches, state/save process reopens, and normal
-  frontend exits. Peak RSS growth is 6.18 MiB under the 16 MiB ceiling.
+  frontend exits. Peak RSS growth is 7.32 MiB under the 16 MiB ceiling.
 
 ## Deferred work
 
 Phase 4 is not complete yet. The next slices must add:
 
-- sound-timer-driven audio instead of silence;
 - complete keypad mapping and core options for interpreter quirks and display
   behavior;
 - broader malformed-program and deterministic replay fixtures;
