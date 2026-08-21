@@ -275,9 +275,11 @@ context negotiation would obscure basic ABI and lifecycle failures.
 
 ## Phase 4: CHIP-8 Reference Core
 
-**Status:** In progress. The bounded content/execution foundation is complete;
-see [PHASE-4.md](PHASE-4.md). Remaining instructions, timers, audible sound,
-quirk options, and broader replay fixtures are next.
+**Status:** In progress. Bounded content loading, the standard instruction set,
+font data, 60 Hz timers, deterministic random behavior, and versioned state are
+implemented under a documented fixed interpreter baseline; see
+[PHASE-4.md](PHASE-4.md). Audible sound, full keypad mapping, quirk options, and
+broader malformed-program/replay fixtures remain.
 
 Implement or adapt a tiny dependency-free CHIP-8 emulator to exercise realistic
 core behavior:
