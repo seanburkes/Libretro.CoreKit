@@ -278,8 +278,8 @@ context negotiation would obscure basic ABI and lifecycle failures.
 **Status:** In progress. Bounded content loading, the standard instruction set,
 font data, 60 Hz timers, deterministic random behavior, full RetroPad keypad
 mapping, sound-timer audio, and versioned state are implemented under a
-documented fixed interpreter baseline; see [PHASE-4.md](PHASE-4.md). Quirk
-options and broader malformed-program/replay fixtures remain.
+configurable interpreter baseline; see [PHASE-4.md](PHASE-4.md). Broader
+malformed-program and replay fixtures remain.
 
 Implement or adapt a tiny dependency-free CHIP-8 emulator to exercise realistic
 core behavior:

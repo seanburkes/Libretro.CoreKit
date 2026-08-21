@@ -42,8 +42,10 @@ struct observations
    unsigned pixel_format_calls;
    unsigned input_descriptor_calls;
    unsigned controller_info_calls;
+   unsigned core_options_v2_calls;
    unsigned input_bitmask_calls;
    unsigned variable_update_calls;
+   unsigned variable_calls;
    unsigned audio_video_enable_calls;
    unsigned fast_forwarding_calls;
    unsigned video_calls;
@@ -55,6 +57,8 @@ struct observations
    uint64_t last_audio_hash;
    uint64_t tone_audio_hash;
    uint16_t input_mask;
+   bool option_update_pending;
+   bool alternative_quirks;
    bool left_sprite;
    bool right_sprite;
    bool last_audio_silent;
@@ -90,6 +94,23 @@ static const struct keypad_mapping keypad_mappings[] = {
    {RETRO_DEVICE_ID_JOYPAD_R3, 0xF, "CHIP-8 key F"},
 };
 
+struct option_expectation
+{
+   const char *key;
+   const char *category;
+   const char *default_value;
+   const char *alternate_value;
+};
+
+static const struct option_expectation option_expectations[] = {
+   {"corekit_chip8_shift_source", "emulation", "vx", "vy"},
+   {"corekit_chip8_logic_vf", "emulation", "preserve", "clear"},
+   {"corekit_chip8_memory_index", "emulation", "unchanged", "increment"},
+   {"corekit_chip8_jump_offset", "emulation", "v0", "vx"},
+   {"corekit_chip8_index_overflow", "emulation", "preserve", "set"},
+   {"corekit_chip8_sprite_edges", "video", "wrap", "clip"},
+};
+
 #define CHIP8_OPCODE(value) (uint8_t)((value) >> 8), (uint8_t)(value)
 
 enum
@@ -99,7 +120,11 @@ enum
    chip8_state_random_offset = 10,
    chip8_state_delay_offset = 14,
    chip8_state_sound_offset = 15,
+   chip8_state_quirks_offset = 18,
    chip8_state_audio_phase_offset = 20,
+   chip8_state_register_offset = 24,
+   chip8_state_display_offset = 72,
+   chip8_all_quirks = 0x3F,
 };
 
 static const uint8_t test_content[] = {
@@ -203,6 +228,57 @@ static const uint8_t keypad_content[] = {
    CHIP8_OPCODE(0x1200),
 };
 
+static const uint8_t shift_logic_transfer_content[] = {
+   CHIP8_OPCODE(0x6003),
+   CHIP8_OPCODE(0x6108),
+   CHIP8_OPCODE(0x8016),
+   CHIP8_OPCODE(0x82F0),
+   CHIP8_OPCODE(0x6FAA),
+   CHIP8_OPCODE(0x63F0),
+   CHIP8_OPCODE(0x640F),
+   CHIP8_OPCODE(0x8341),
+   CHIP8_OPCODE(0x85F0),
+   CHIP8_OPCODE(0xA300),
+   CHIP8_OPCODE(0xF555),
+   CHIP8_OPCODE(0x0000),
+};
+
+static const uint8_t jump_content[] = {
+   CHIP8_OPCODE(0x6002),
+   CHIP8_OPCODE(0x6220),
+   CHIP8_OPCODE(0xB2F0),
+};
+
+static const uint8_t default_jump_target[] = {
+   CHIP8_OPCODE(0x63D0),
+   CHIP8_OPCODE(0xA320),
+   CHIP8_OPCODE(0xF355),
+   CHIP8_OPCODE(0x0000),
+};
+
+static const uint8_t alternative_jump_target[] = {
+   CHIP8_OPCODE(0x63A0),
+   CHIP8_OPCODE(0xA320),
+   CHIP8_OPCODE(0xF355),
+   CHIP8_OPCODE(0x0000),
+};
+
+static const uint8_t index_overflow_content[] = {
+   CHIP8_OPCODE(0x6F7E),
+   CHIP8_OPCODE(0xAFFF),
+   CHIP8_OPCODE(0x6001),
+   CHIP8_OPCODE(0xF01E),
+};
+
+static const uint8_t sprite_edges_content[] = {
+   CHIP8_OPCODE(0x607F),
+   CHIP8_OPCODE(0x613F),
+   CHIP8_OPCODE(0xA20A),
+   CHIP8_OPCODE(0xD011),
+   CHIP8_OPCODE(0x0000),
+   0xFF,
+};
+
 static bool check(bool condition, const char *message)
 {
    if (!condition)
@@ -224,6 +300,61 @@ static uint64_t hash_bytes(const void *data, size_t size)
    return hash;
 }
 
+static bool validate_core_options(const struct retro_core_options_v2 *options)
+{
+   size_t index;
+
+   if (options == NULL || options->categories == NULL || options->definitions == NULL ||
+       options->categories[0].key == NULL ||
+       strcmp(options->categories[0].key, "emulation") != 0 ||
+       options->categories[1].key == NULL ||
+       strcmp(options->categories[1].key, "video") != 0 ||
+       options->categories[2].key != NULL)
+      return false;
+
+   for (index = 0;
+        index < sizeof(option_expectations) / sizeof(option_expectations[0]);
+        index++)
+   {
+      const struct retro_core_option_v2_definition *definition =
+         &options->definitions[index];
+      const struct option_expectation *expected = &option_expectations[index];
+      if (definition->key == NULL || strcmp(definition->key, expected->key) != 0 ||
+          definition->desc == NULL || definition->info == NULL ||
+          definition->category_key == NULL ||
+          strcmp(definition->category_key, expected->category) != 0 ||
+          definition->values[0].value == NULL ||
+          strcmp(definition->values[0].value, expected->default_value) != 0 ||
+          definition->values[0].label == NULL ||
+          definition->values[1].value == NULL ||
+          strcmp(definition->values[1].value, expected->alternate_value) != 0 ||
+          definition->values[1].label == NULL ||
+          definition->values[2].value != NULL ||
+          definition->default_value == NULL ||
+          strcmp(definition->default_value, expected->default_value) != 0)
+         return false;
+   }
+
+   return options->definitions[index].key == NULL;
+}
+
+static const char *get_option_value(const char *key)
+{
+   size_t index;
+
+   for (index = 0;
+        index < sizeof(option_expectations) / sizeof(option_expectations[0]);
+        index++)
+   {
+      if (strcmp(key, option_expectations[index].key) == 0)
+         return observations.alternative_quirks
+            ? option_expectations[index].alternate_value
+            : option_expectations[index].default_value;
+   }
+
+   return NULL;
+}
+
 static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
 {
    if (command == RETRO_ENVIRONMENT_GET_LOG_INTERFACE)
@@ -234,6 +365,14 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
       if (data == NULL || *(const enum retro_pixel_format *)data != RETRO_PIXEL_FORMAT_XRGB8888)
          observations.callback_error = true;
       observations.pixel_format_calls++;
+      return true;
+   }
+
+   if (command == RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2)
+   {
+      if (!validate_core_options(data))
+         observations.callback_error = true;
+      observations.core_options_v2_calls++;
       return true;
    }
 
@@ -291,8 +430,24 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
       if (data == NULL)
          observations.callback_error = true;
       else
-         *(bool *)data = false;
+      {
+         *(bool *)data = observations.option_update_pending;
+         observations.option_update_pending = false;
+      }
       observations.variable_update_calls++;
+      return true;
+   }
+
+   if (command == RETRO_ENVIRONMENT_GET_VARIABLE)
+   {
+      struct retro_variable *variable = data;
+      const char *value = NULL;
+      if (variable == NULL || variable->key == NULL ||
+          (value = get_option_value(variable->key)) == NULL)
+         observations.callback_error = true;
+      else
+         variable->value = value;
+      observations.variable_calls++;
       return true;
    }
 
@@ -678,6 +833,207 @@ static bool run_keypad_suite(const struct core_api *api)
    return true;
 }
 
+static size_t count_set_display_pixels(const uint8_t *state)
+{
+   size_t count = 0;
+   size_t pixel;
+
+   for (pixel = 0; pixel < 64 * 32; pixel++)
+   {
+      if (state[chip8_state_display_offset + pixel] != 0)
+         count++;
+   }
+   return count;
+}
+
+static bool run_quirk_suite(const struct core_api *api)
+{
+   static const uint8_t default_registers[] = {0x01, 0x08, 0x01, 0xFF, 0x0F, 0xAA};
+   static const uint8_t alternative_registers[] = {0x04, 0x08, 0x00, 0xFF, 0x0F, 0x00};
+   uint8_t default_state[chip8_state_size];
+   uint8_t alternative_start[chip8_state_size];
+   uint8_t alternative_state[chip8_state_size];
+   uint8_t replay_state[chip8_state_size];
+   uint8_t invalid_state[chip8_state_size];
+   uint8_t *system_ram;
+
+   observations.alternative_quirks = false;
+   if (!check(load_test_content(
+                 api,
+                 shift_logic_transfer_content,
+                 sizeof(shift_logic_transfer_content),
+                 "/corekit/shift-logic-transfer.ch8"),
+              "quirk content load"))
+      return false;
+
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (!check(system_ram != NULL, "quirk system RAM"))
+      return false;
+
+   api->retro_run();
+   if (!check(memcmp(&system_ram[0x300], default_registers,
+                     sizeof(default_registers)) == 0,
+              "default shift and logic behavior") ||
+       !check(api->retro_serialize(default_state, sizeof(default_state)),
+              "serialize default quirk state") ||
+       !check(read_u16_le(&default_state[8]) == 0x300,
+              "default transfer leaves index unchanged") ||
+       !check(default_state[chip8_state_quirks_offset] == 0,
+              "default quirk flags"))
+      return false;
+
+   observations.alternative_quirks = true;
+   observations.option_update_pending = true;
+   api->retro_reset();
+   api->retro_run();
+   if (!check(memcmp(&system_ram[0x300], alternative_registers,
+                     sizeof(alternative_registers)) == 0,
+              "updated shift and logic behavior") ||
+       !check(api->retro_serialize(alternative_state, sizeof(alternative_state)),
+              "serialize alternative quirk state") ||
+       !check(read_u16_le(&alternative_state[8]) == 0x306,
+              "updated transfer increments index") ||
+       !check(alternative_state[chip8_state_quirks_offset] == chip8_all_quirks,
+              "alternative quirk flags"))
+      return false;
+
+   api->retro_reset();
+   if (!check(api->retro_serialize(alternative_start, sizeof(alternative_start)),
+              "serialize alternative reset state"))
+      return false;
+
+   observations.alternative_quirks = false;
+   observations.option_update_pending = true;
+   api->retro_run();
+   if (!check(memcmp(&system_ram[0x300], default_registers,
+                     sizeof(default_registers)) == 0,
+              "restored frontend defaults"))
+      return false;
+
+   if (!check(api->retro_unserialize(alternative_start, sizeof(alternative_start)),
+              "restore alternative reset state"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(replay_state, sizeof(replay_state)),
+              "serialize alternative replay") ||
+       !check(memcmp(alternative_state, replay_state, sizeof(alternative_state)) == 0,
+              "state restores quirk behavior deterministically"))
+      return false;
+
+   memcpy(invalid_state, alternative_state, sizeof(invalid_state));
+   invalid_state[chip8_state_quirks_offset] = 0x80;
+   if (!check(!api->retro_unserialize(invalid_state, sizeof(invalid_state)),
+              "unknown quirk flag rejection") ||
+       !check(api->retro_serialize(invalid_state, sizeof(invalid_state)),
+              "serialize after rejected quirk flags") ||
+       !check(memcmp(alternative_state, invalid_state, sizeof(alternative_state)) == 0,
+              "rejected quirk flags are transactional"))
+      return false;
+
+   api->retro_unload_game();
+
+   observations.alternative_quirks = false;
+   if (!check(load_test_content(
+                 api,
+                 jump_content,
+                 sizeof(jump_content),
+                 "/corekit/jump-default.ch8"),
+              "default jump content load"))
+      return false;
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (system_ram != NULL)
+      memcpy(&system_ram[0x2F2], default_jump_target, sizeof(default_jump_target));
+   api->retro_run();
+   if (!check(system_ram != NULL && system_ram[0x323] == 0xD0,
+              "Bnnn uses V0 by default"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = true;
+   if (!check(load_test_content(
+                 api,
+                 jump_content,
+                 sizeof(jump_content),
+                 "/corekit/jump-vx.ch8"),
+              "alternative jump content load"))
+      return false;
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (system_ram != NULL)
+      memcpy(&system_ram[0x110], alternative_jump_target, sizeof(alternative_jump_target));
+   api->retro_run();
+   if (!check(system_ram != NULL && system_ram[0x323] == 0xA0,
+              "Bnnn is interpreted as Bxnn when configured"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = false;
+   if (!check(load_test_content(
+                 api,
+                 index_overflow_content,
+                 sizeof(index_overflow_content),
+                 "/corekit/index-overflow-default.ch8"),
+              "default index-overflow content load"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(default_state, sizeof(default_state)),
+              "serialize default index-overflow state") ||
+       !check(default_state[chip8_state_register_offset + 0xF] == 0x7E,
+              "Fx1E preserves VF by default"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = true;
+   if (!check(load_test_content(
+                 api,
+                 index_overflow_content,
+                 sizeof(index_overflow_content),
+                 "/corekit/index-overflow-set.ch8"),
+              "alternative index-overflow content load"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(alternative_state, sizeof(alternative_state)),
+              "serialize alternative index-overflow state") ||
+       !check(alternative_state[chip8_state_register_offset + 0xF] == 1,
+              "Fx1E sets VF on overflow when configured"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = false;
+   if (!check(load_test_content(
+                 api,
+                 sprite_edges_content,
+                 sizeof(sprite_edges_content),
+                 "/corekit/sprite-wrap.ch8"),
+              "sprite-wrap content load"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(default_state, sizeof(default_state)),
+              "serialize wrapped sprite state") ||
+       !check(count_set_display_pixels(default_state) == 8,
+              "sprites wrap by default"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = true;
+   if (!check(load_test_content(
+                 api,
+                 sprite_edges_content,
+                 sizeof(sprite_edges_content),
+                 "/corekit/sprite-clip.ch8"),
+              "sprite-clip content load"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(alternative_state, sizeof(alternative_state)),
+              "serialize clipped sprite state") ||
+       !check(count_set_display_pixels(alternative_state) == 1,
+              "sprites clip when configured"))
+      return false;
+   api->retro_unload_game();
+
+   observations.alternative_quirks = false;
+   return true;
+}
+
 static bool run_session(const struct core_api *api)
 {
    const size_t expected_state_size = chip8_state_size;
@@ -701,7 +1057,7 @@ static bool run_session(const struct core_api *api)
                  strcmp(system_info.library_name, "CoreKit CHIP-8") == 0,
               "library name") ||
        !check(system_info.library_version != NULL &&
-                 strcmp(system_info.library_version, "0.4.0-phase4") == 0,
+                 strcmp(system_info.library_version, "0.5.0-phase4") == 0,
               "library version") ||
        !check(system_info.valid_extensions != NULL &&
                  strcmp(system_info.valid_extensions, "ch8") == 0,
@@ -722,7 +1078,8 @@ static bool run_session(const struct core_api *api)
 
    api->retro_init();
    if (!check(observations.input_descriptor_calls == 1, "input descriptors") ||
-       !check(observations.input_bitmask_calls == 1, "input bitmask negotiation"))
+       !check(observations.input_bitmask_calls == 1, "input bitmask negotiation") ||
+       !check(observations.core_options_v2_calls == 1, "core-options registration"))
       return false;
 
    if (!check(!api->retro_load_game(NULL), "contentless load rejection"))
@@ -748,7 +1105,8 @@ static bool run_session(const struct core_api *api)
    game.meta = NULL;
    if (!check(api->retro_load_game(&game), "bounded in-memory content load") ||
        !check(observations.pixel_format_calls == 1, "pixel format negotiation") ||
-       !check(observations.controller_info_calls == 1, "controller metadata"))
+       !check(observations.controller_info_calls == 1, "controller metadata") ||
+       !check(observations.variable_calls == 6, "initial core-option queries"))
       goto cleanup;
 
    memset(&av_info, 0, sizeof(av_info));
@@ -789,7 +1147,7 @@ static bool run_session(const struct core_api *api)
    if (state == NULL || current_state == NULL)
       goto cleanup;
    if (!check(api->retro_serialize(state, expected_state_size), "serialize state") ||
-       !check(memcmp(state, "C8S3", 4) == 0, "serialized state header"))
+       !check(memcmp(state, "C8S4", 4) == 0, "serialized state header"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -803,13 +1161,13 @@ static bool run_session(const struct core_api *api)
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
-   memcpy(current_state, "C8S2\x02\x00", 6);
+   memcpy(current_state, "C8S3\x03\x00", 6);
    if (!check(!api->retro_unserialize(current_state, expected_state_size),
-              "version-2 state rejection") ||
+              "version-3 state rejection") ||
        !check(api->retro_serialize(current_state, expected_state_size),
-              "serialize after rejected version-2 state") ||
+              "serialize after rejected version-3 state") ||
        !check(memcmp(state, current_state, expected_state_size) == 0,
-              "rejected version-2 state is transactional"))
+              "rejected version-3 state is transactional"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -882,7 +1240,7 @@ static bool run_session(const struct core_api *api)
 
    api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
    if (!run_arithmetic_suite(api) || !run_timer_random_suite(api) ||
-       !run_keypad_suite(api) ||
+       !run_keypad_suite(api) || !run_quirk_suite(api) ||
        !check(api->retro_serialize_size() == 0,
               "state unavailable after instruction suites"))
       goto cleanup;

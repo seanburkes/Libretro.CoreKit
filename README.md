@@ -38,12 +38,13 @@ oracle proves runtime output changes, while the RetroArch gate proves persisted
 non-default settings through real frontend lifecycles.
 
 Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
-in-memory `.ch8` content loading, standard instruction execution under a fixed
-modern baseline, 60 Hz timers, deterministic random behavior, 64x32 XRGB8888
-rendering, complete CHIP-8 keypad mapping across the standard RetroPad,
-deterministic sound-timer audio, reset, pinned system RAM, and transactional
-state loading. Interpreter and display quirk options are deliberately still
-open.
+in-memory `.ch8` content loading, standard instruction execution under a
+configurable baseline, 60 Hz timers, deterministic random behavior, 64x32
+XRGB8888 rendering, complete CHIP-8 keypad mapping across the standard
+RetroPad, deterministic sound-timer audio, reset, pinned system RAM, and
+transactional state loading. Six independent interpreter and display quirk
+options apply at content load and through frontend runtime updates, and
+effective choices are preserved in version-4 state.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -86,7 +87,9 @@ host under ASan/UBSan. The host loads deterministic in-memory `.ch8` test
 content, verifies arithmetic, memory, font, timer, key-wait, random, drawing,
 audible/silent stereo batches, all 16 RetroPad-to-keypad mappings, and
 controller disable behavior. It round-trips the versioned state including
-deterministic audio phase while checking stable CHIP-8 system RAM. Use
+deterministic audio phase and interpreter configuration while checking stable
+CHIP-8 system RAM. It also exercises the default and alternative behavior of
+all six core options. Use
 `COREKIT_CHIP8_CYCLES=1000` for the full loader stress count.
 
 ## Run the Linux RetroArch lifecycle gate
@@ -104,8 +107,10 @@ exit through RetroArch's `QUIT` command. It also verifies recovery from missing
 content, content closure, save-memory persistence, and save/load state across
 separate frontend process lifecycles. Static metadata ownership and controller
 registration/device forwarding are checked in the same frontend gate, along
-with persisted non-default core options. It also loads CHIP-8 test content that
-starts the sound timer, then resets and unloads the core. The pinned source
+with persisted non-default core options. It also loads CHIP-8 test content with
+all compatibility alternatives persisted, verifies the changed shift behavior,
+starts the sound timer, maps all 16 keypad controls, and round-trips a framed
+version-4 state before reset and unload. The pinned source
 build applies the narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set

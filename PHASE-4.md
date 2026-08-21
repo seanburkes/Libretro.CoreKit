@@ -1,9 +1,10 @@
 # Phase 4: CHIP-8 Reference Core
 
-**Status:** In progress. Four vertical slices now cover bounded `.ch8` content,
-the standard instruction set under a documented fixed interpreter baseline,
-60 Hz timers, deterministic random behavior, the complete CHIP-8 keypad through
-RetroPad input, video, audible sound-timer output, reset, and serialized state.
+**Status:** In progress. Five vertical slices now cover bounded `.ch8` content,
+the standard instruction set under a documented configurable interpreter
+baseline, 60 Hz timers, deterministic random behavior, the complete CHIP-8
+keypad through RetroPad input, configurable interpreter/display quirks, video,
+audible sound-timer output, reset, and serialized state.
 
 ## Implemented slices
 
@@ -26,10 +27,14 @@ Implemented behavior:
   sound timers once per 60 Hz frame, and continue ticking while `Fx0A` waits.
 - Reset deterministic pseudo-random instruction behavior to the fixed
   xorshift32 seed `0xC0DEF00D` on every content load and reset.
-- Use a fixed modern interpreter baseline until core options land: shifts use
-  `Vx`, logic operations preserve `VF`, `Fx55`/`Fx65` leave `I` unchanged,
-  `Bnnn` adds `V0`, `Fx1E` leaves `VF` unchanged, and sprites wrap at display
-  edges.
+- Publish six independent core options for the compatibility choices that vary
+  across CHIP-8 interpreters. The defaults remain the prior modern baseline:
+  shifts use `Vx`, logic operations preserve `VF`, `Fx55`/`Fx65` leave `I`
+  unchanged, `Bnnn` adds `V0`, `Fx1E` preserves `VF`, and sprites wrap at
+  display edges. The alternatives use `Vy`, clear logic-operation `VF`,
+  increment `I`, interpret `Bnnn` as `Bxnn` (`XNN + Vx`), set `VF` from index
+  overflow, and clip sprites. Runtime frontend updates apply without reloading
+  content.
 - Halt the virtual machine deterministically on an unsupported or invalid
   instruction without throwing through the native ABI boundary.
 - Render the 64x32 monochrome display directly as XRGB8888.
@@ -52,9 +57,10 @@ Implemented behavior:
   | L3 | `E` | R3 | `F` |
 - Expose the pinned 4 KiB CHIP-8 address space as system RAM.
 - Serialize registers, stack, display, memory, program counter, index register,
-  timers, random state, audio phase, stack pointer, and halt state in a
-  validated 6,216-byte version-3 format. Version-2 states are deliberately
-  rejected rather than guessed into a different audio timeline.
+  timers, random state, audio phase, stack pointer, halt state, and the six
+  effective quirk flags in a validated 6,216-byte version-4 format. Version-3
+  states are deliberately rejected rather than guessed into a different
+  interpreter configuration.
 - Preserve the originally loaded content separately so reset restores program
   memory even after execution or frontend memory inspection changes it.
 
@@ -69,34 +75,37 @@ The focused independent C host resolves all 25 mandatory exports and verifies:
   behavior;
 - arithmetic, skip, transfer, BCD, font, indexed-jump, timer, key-wait, and
   deterministic random instruction behavior through system-RAM observations;
+- exact core-options-v2 metadata, all default and alternative interpreter
+  behaviors, live option updates, sprite wrap/clip results, and deterministic
+  quirk restoration from state;
 - exact state size, transactional malformed-state rejection, deterministic
   timer/random/audio replay, reset/state restoration, and stable system-RAM
   pointers;
 - repeated logical teardown and loader close/reopen under ASan/UBSan.
 
-The pinned RetroArch gate additionally loads deterministic `.ch8` test content
-that starts the sound timer, runs frames through the SDL2 dummy audio path, and
-waits for CHIP-8 keypad input. The gate drives every standard control through
-RetroArch's Remote RetroPad interface and reads the captured key through exposed
-system RAM before reset and unload. Linux x64 remains the only
-RetroArch-supported target.
+The pinned RetroArch gate additionally persists all six non-default options and
+loads deterministic `.ch8` test content that observes the `Vy` shift behavior,
+starts the sound timer, runs frames through the SDL2 dummy audio path, and waits
+for CHIP-8 keypad input. The gate drives every standard control through
+RetroArch's Remote RetroPad interface, reads interpreter results through exposed
+system RAM, and saves then reloads the framed version-4 state before reset and
+unload. Linux x64 remains the only RetroArch-supported target.
 
 Current evidence with .NET SDK 10.0.110:
 
 - 1,000 loader close/reopen and logical content lifecycle cycles complete under
   ASan/UBSan with leak detection disabled for the process-lifetime NativeAOT
   runtime and no sanitizer diagnostic.
-- Pinned RetroArch `7bc72e8735` accepts all 16 Remote RetroPad mappings before
-  the existing 50 managed/control switches, state/save process reopens, and
-  normal frontend exits. Peak RSS growth is 6.79 MiB under the 16 MiB ceiling.
+- Pinned RetroArch `7bc72e8735` accepts all 16 Remote RetroPad mappings,
+  persisted non-default quirks, and the version-4 state round trip before the
+  existing 50 managed/control switches, state/save process reopens, and normal
+  frontend exits. Peak RSS growth is 0.88 MiB under the 16 MiB ceiling.
 
 ## Deferred work
 
 Phase 4 is not complete yet. The next slices must add:
 
-- core options for interpreter quirks and display behavior;
 - broader malformed-program and deterministic replay fixtures;
-- a state-format update for configurable quirk behavior.
 
 Generating the repeated native export façade is still deferred until the
 Craterboy adapter provides a third concrete consumer. Two copies are mildly
