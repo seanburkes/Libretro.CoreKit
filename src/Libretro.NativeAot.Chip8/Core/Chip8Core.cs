@@ -26,6 +26,9 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private const int StackOffset = 40;
     private const int DisplayOffset = 72;
     private const int MemoryOffset = DisplayOffset + (Width * Height);
+    // Fetching at 0xFFE advances to 0x1000; a taken skip advances once more.
+    private const int MaximumRuntimeProgramCounter = MemorySize + 2;
+    private const int MaximumRuntimeReturnAddress = MemorySize;
     private const uint InitialRandomState = 0xC0DEF00D;
     private const uint StateMagic = 0x34533843;
     private const ushort StateVersion = 4;
@@ -94,7 +97,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit CHIP-8",
-        "0.5.0-phase4",
+        "0.6.0-phase4",
         "ch8");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
@@ -247,8 +250,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         var stackPointer = source[16];
         var halted = source[17];
         var quirks = source[18];
-        if ((programCounter & 1) != 0 || programCounter > MemorySize ||
-            (programCounter > MemorySize - 2 && halted == 0) ||
+        if (programCounter > MaximumRuntimeProgramCounter ||
             indexRegister >= MemorySize || randomState == 0 || audioPhase >= AudioSampleRate ||
             stackPointer > _stack.Length || halted > 1 ||
             (quirks & ~SupportedQuirkMask) != 0 || source[19] != 0)
@@ -260,7 +262,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         {
             var returnAddress = BinaryPrimitives.ReadUInt16LittleEndian(
                 source[(StackOffset + (index * 2))..]);
-            if ((returnAddress & 1) != 0 || returnAddress > MemorySize - 2)
+            if (returnAddress > MaximumRuntimeReturnAddress)
             {
                 return false;
             }

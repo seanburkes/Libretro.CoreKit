@@ -279,6 +279,56 @@ def save_and_restore_chip8_state(sock, port, state_path, log_path):
         "CHIP-8 version-4 state restoration",
     )
 
+    send(sock, port, "WRITE_CORE_RAM 216 1F FF")
+    wait_for_core_ram(
+        sock,
+        port,
+        0x216,
+        (0x1F, 0xFF),
+        "CHIP-8 boundary-jump mutation",
+    )
+    time.sleep(0.1)
+    log_start = os.path.getsize(log_path)
+    send(sock, port, "SAVE_STATE_SLOT 0")
+    wait_for_logged(
+        log_path,
+        log_start,
+        completed,
+        "RetroArch CHIP-8 boundary-state save completion",
+    )
+    with open(state_path, "rb") as state_file:
+        state = state_file.read()
+    if (
+        int.from_bytes(state[22:24], "little") != 0xFFF
+        or state[33] != 1
+        or state[34] != 0x3F
+    ):
+        raise RuntimeError("RetroArch CHIP-8 boundary halt state is invalid")
+
+    send(sock, port, "WRITE_CORE_RAM 310 00")
+    wait_for_core_ram(
+        sock,
+        port,
+        0x310,
+        (0,),
+        "CHIP-8 boundary-state restore mutation",
+    )
+    log_start = os.path.getsize(log_path)
+    send(sock, port, "LOAD_STATE")
+    wait_for_logged(
+        log_path,
+        log_start,
+        f'[INFO] [State] Loading state "{state_path}", 6240 bytes.',
+        "RetroArch CHIP-8 boundary-state load dispatch",
+    )
+    wait_for_core_ram(
+        sock,
+        port,
+        0x310,
+        (4,),
+        "CHIP-8 boundary halt state restoration",
+    )
+
 
 def save_supported_state(sock, port, state_path, log_path):
     log_start = os.path.getsize(log_path)
@@ -496,7 +546,7 @@ def main():
             "RetroArch CHIP-8 quirk options",
         )
         print(
-            "CHIP-8 options, state v4, sound, keypad, reset, and unload: accepted",
+            "CHIP-8 options, boundary state v4, sound, keypad, reset, and unload: accepted",
             flush=True,
         )
 

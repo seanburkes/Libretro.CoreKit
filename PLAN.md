@@ -258,7 +258,7 @@ when the operating system leaves the NativeAOT library loaded.
 ## Phase 3: Software Sample
 
 **Status:** Complete. See [PHASE-3.md](PHASE-3.md) for the implemented sample,
-runtime-option decisions, and validation evidence. Phase 4 is next.
+runtime-option decisions, and validation evidence.
 
 Build a contentless software sample that exercises the host without introducing
 an emulator:
@@ -275,11 +275,11 @@ context negotiation would obscure basic ABI and lifecycle failures.
 
 ## Phase 4: CHIP-8 Reference Core
 
-**Status:** In progress. Bounded content loading, the standard instruction set,
+**Status:** Complete. Bounded content loading, the standard instruction set,
 font data, 60 Hz timers, deterministic random behavior, full RetroPad keypad
-mapping, sound-timer audio, and versioned state are implemented under a
-configurable interpreter baseline; see [PHASE-4.md](PHASE-4.md). Broader
-malformed-program and replay fixtures remain.
+mapping, sound-timer audio, configurable interpreter behavior, versioned state,
+malformed-program handling, and deterministic replay are implemented; see
+[PHASE-4.md](PHASE-4.md).
 
 Implement or adapt a tiny dependency-free CHIP-8 emulator to exercise realistic
 core behavior:

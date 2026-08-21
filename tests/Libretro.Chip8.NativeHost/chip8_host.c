@@ -120,9 +120,12 @@ enum
    chip8_state_random_offset = 10,
    chip8_state_delay_offset = 14,
    chip8_state_sound_offset = 15,
+   chip8_state_stack_pointer_offset = 16,
+   chip8_state_halted_offset = 17,
    chip8_state_quirks_offset = 18,
    chip8_state_audio_phase_offset = 20,
    chip8_state_register_offset = 24,
+   chip8_state_stack_offset = 40,
    chip8_state_display_offset = 72,
    chip8_all_quirks = 0x3F,
 };
@@ -278,6 +281,151 @@ static const uint8_t sprite_edges_content[] = {
    CHIP8_OPCODE(0x0000),
    0xFF,
 };
+
+static const uint8_t unsupported_instruction_content[] = {
+   CHIP8_OPCODE(0x5011),
+};
+
+static const uint8_t return_underflow_content[] = {
+   CHIP8_OPCODE(0x00EE),
+};
+
+static const uint8_t recursive_call_content[] = {
+   CHIP8_OPCODE(0x2200),
+};
+
+static const uint8_t odd_jump_content[] = {
+   CHIP8_OPCODE(0x1201),
+};
+
+static const uint8_t end_jump_content[] = {
+   CHIP8_OPCODE(0x1FFF),
+};
+
+static const uint8_t end_call_content[] = {
+   CHIP8_OPCODE(0x2FFF),
+};
+
+static const uint8_t skip_past_memory_content[] = {
+   CHIP8_OPCODE(0x6000),
+   CHIP8_OPCODE(0x1FFE),
+};
+
+static const uint8_t boundary_call_content[] = {
+   CHIP8_OPCODE(0x1FFE),
+};
+
+static const uint8_t jump_overflow_content[] = {
+   CHIP8_OPCODE(0x60FF),
+   CHIP8_OPCODE(0xBFFF),
+};
+
+static const uint8_t invalid_font_content[] = {
+   CHIP8_OPCODE(0x60FF),
+   CHIP8_OPCODE(0xF029),
+};
+
+static const uint8_t out_of_range_bcd_content[] = {
+   CHIP8_OPCODE(0xAFFF),
+   CHIP8_OPCODE(0x60FF),
+   CHIP8_OPCODE(0xF033),
+};
+
+static const uint8_t out_of_range_store_content[] = {
+   CHIP8_OPCODE(0xAFFF),
+   CHIP8_OPCODE(0x60AA),
+   CHIP8_OPCODE(0x61BB),
+   CHIP8_OPCODE(0xF155),
+};
+
+static const uint8_t out_of_range_load_content[] = {
+   CHIP8_OPCODE(0xAFFF),
+   CHIP8_OPCODE(0xF165),
+};
+
+static const uint8_t out_of_range_sprite_content[] = {
+   CHIP8_OPCODE(0xAFFF),
+   CHIP8_OPCODE(0x6000),
+   CHIP8_OPCODE(0x6100),
+   CHIP8_OPCODE(0xD012),
+};
+
+static const uint8_t zero_height_sprite_content[] = {
+   CHIP8_OPCODE(0xA050),
+   CHIP8_OPCODE(0x6000),
+   CHIP8_OPCODE(0x6100),
+   CHIP8_OPCODE(0xD010),
+};
+
+static const uint8_t skip_past_memory_patch[] = {
+   CHIP8_OPCODE(0x3000),
+};
+
+static const uint8_t boundary_call_patch[] = {
+   CHIP8_OPCODE(0x2200),
+};
+
+static const uint8_t out_of_range_load_patch[] = {0xCC};
+
+struct malformed_program_case
+{
+   const char *name;
+   const char *path;
+   const uint8_t *content;
+   size_t content_size;
+   unsigned frames_to_halt;
+   uint16_t expected_program_counter;
+   uint8_t expected_stack_pointer;
+   uint16_t patch_address;
+   const uint8_t *patch;
+   size_t patch_size;
+   uint16_t preserved_address;
+   uint8_t preserved_value;
+};
+
+#define MALFORMED_CASE(label, fixture, frames, pc, stack) \
+   {label, "/corekit/malformed-" label ".ch8", fixture, sizeof(fixture), \
+    frames, pc, stack, 0, NULL, 0, UINT16_MAX, 0}
+
+static const struct malformed_program_case malformed_program_cases[] = {
+   MALFORMED_CASE("unsupported-instruction", unsupported_instruction_content, 1, 0x202, 0),
+   MALFORMED_CASE("return-underflow", return_underflow_content, 1, 0x202, 0),
+   MALFORMED_CASE("recursive-call-overflow", recursive_call_content, 2, 0x202, 16),
+   MALFORMED_CASE("odd-jump", odd_jump_content, 1, 0x203, 0),
+   MALFORMED_CASE("end-jump", end_jump_content, 1, 0xFFF, 0),
+   MALFORMED_CASE("end-call", end_call_content, 1, 0xFFF, 1),
+   {
+      "skip-past-memory", "/corekit/malformed-skip-past-memory.ch8",
+      skip_past_memory_content, sizeof(skip_past_memory_content), 1, 0x1002, 0,
+      0xFFE, skip_past_memory_patch, sizeof(skip_past_memory_patch), UINT16_MAX, 0,
+   },
+   {
+      "boundary-call-overflow", "/corekit/malformed-boundary-call-overflow.ch8",
+      boundary_call_content, sizeof(boundary_call_content), 3, 0x1000, 16,
+      0xFFE, boundary_call_patch, sizeof(boundary_call_patch), UINT16_MAX, 0,
+   },
+   MALFORMED_CASE("jump-overflow", jump_overflow_content, 1, 0x204, 0),
+   MALFORMED_CASE("invalid-font-digit", invalid_font_content, 1, 0x204, 0),
+   {
+      "out-of-range-bcd", "/corekit/malformed-out-of-range-bcd.ch8",
+      out_of_range_bcd_content, sizeof(out_of_range_bcd_content), 1, 0x206, 0,
+      0, NULL, 0, 0xFFF, 0,
+   },
+   {
+      "out-of-range-store", "/corekit/malformed-out-of-range-store.ch8",
+      out_of_range_store_content, sizeof(out_of_range_store_content), 1, 0x208, 0,
+      0, NULL, 0, 0xFFF, 0,
+   },
+   {
+      "out-of-range-load", "/corekit/malformed-out-of-range-load.ch8",
+      out_of_range_load_content, sizeof(out_of_range_load_content), 1, 0x204, 0,
+      0xFFF, out_of_range_load_patch, sizeof(out_of_range_load_patch), 0xFFF, 0xCC,
+   },
+   MALFORMED_CASE("out-of-range-sprite", out_of_range_sprite_content, 1, 0x208, 0),
+   MALFORMED_CASE("zero-height-sprite", zero_height_sprite_content, 1, 0x208, 0),
+};
+
+#undef MALFORMED_CASE
 
 static bool check(bool condition, const char *message)
 {
@@ -630,6 +778,12 @@ static void write_u32_le(uint8_t *data, uint32_t value)
    data[1] = (uint8_t)(value >> 8);
    data[2] = (uint8_t)(value >> 16);
    data[3] = (uint8_t)(value >> 24);
+}
+
+static void write_u16_le(uint8_t *data, uint16_t value)
+{
+   data[0] = (uint8_t)value;
+   data[1] = (uint8_t)(value >> 8);
 }
 
 static bool load_test_content(
@@ -1034,6 +1188,166 @@ static bool run_quirk_suite(const struct core_api *api)
    return true;
 }
 
+static bool check_malformed_case(
+      bool condition, const struct malformed_program_case *scenario, const char *expectation)
+{
+   if (!condition)
+      fprintf(stderr, "validation failed: %s: %s\n", scenario->name, expectation);
+   return condition;
+}
+
+static void apply_malformed_patch(
+      uint8_t *system_ram, const struct malformed_program_case *scenario)
+{
+   if (scenario->patch_size != 0)
+      memcpy(&system_ram[scenario->patch_address], scenario->patch, scenario->patch_size);
+}
+
+static bool run_malformed_program_case(
+      const struct core_api *api, const struct malformed_program_case *scenario)
+{
+   uint8_t initial_state[chip8_state_size];
+   uint8_t halted_state[chip8_state_size];
+   uint8_t stable_state[chip8_state_size];
+   uint8_t replay_state[chip8_state_size];
+   uint8_t *system_ram;
+   unsigned frame;
+
+   observations.input_mask = 0;
+   observations.alternative_quirks = false;
+   if (!check_malformed_case(
+          load_test_content(api, scenario->content, scenario->content_size, scenario->path),
+          scenario,
+          "content load"))
+      return false;
+
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (!check_malformed_case(system_ram != NULL, scenario, "system RAM"))
+      return false;
+   apply_malformed_patch(system_ram, scenario);
+
+   if (!check_malformed_case(
+          api->retro_serialize(initial_state, sizeof(initial_state)),
+          scenario,
+          "serialize initial state"))
+      return false;
+
+   for (frame = 0; frame < scenario->frames_to_halt; frame++)
+      api->retro_run();
+   if (!check_malformed_case(
+          api->retro_serialize(halted_state, sizeof(halted_state)),
+          scenario,
+          "serialize halted state") ||
+       !check_malformed_case(
+          halted_state[chip8_state_halted_offset] == 1,
+          scenario,
+          "virtual machine halted") ||
+       !check_malformed_case(
+          read_u16_le(&halted_state[chip8_state_pc_offset]) ==
+             scenario->expected_program_counter,
+          scenario,
+          "program counter after halt") ||
+       !check_malformed_case(
+          halted_state[chip8_state_stack_pointer_offset] ==
+             scenario->expected_stack_pointer,
+          scenario,
+          "stack pointer after halt") ||
+       !check_malformed_case(
+          count_set_display_pixels(halted_state) == 0,
+          scenario,
+          "display remains unchanged") ||
+       !check_malformed_case(
+          scenario->preserved_address == UINT16_MAX ||
+             system_ram[scenario->preserved_address] == scenario->preserved_value,
+          scenario,
+          "failed memory operation is transactional"))
+      return false;
+
+   api->retro_run();
+   if (!check_malformed_case(
+          api->retro_serialize(stable_state, sizeof(stable_state)),
+          scenario,
+          "serialize stable halted state") ||
+       !check_malformed_case(
+          memcmp(halted_state, stable_state, sizeof(halted_state)) == 0,
+          scenario,
+          "halted frame is stable"))
+      return false;
+
+   if (!check_malformed_case(
+          api->retro_unserialize(initial_state, sizeof(initial_state)),
+          scenario,
+          "restore initial state"))
+      return false;
+   for (frame = 0; frame < scenario->frames_to_halt; frame++)
+      api->retro_run();
+   if (!check_malformed_case(
+          api->retro_serialize(replay_state, sizeof(replay_state)),
+          scenario,
+          "serialize state replay") ||
+       !check_malformed_case(
+          memcmp(halted_state, replay_state, sizeof(halted_state)) == 0,
+          scenario,
+          "state replay is deterministic"))
+      return false;
+
+   api->retro_reset();
+   apply_malformed_patch(system_ram, scenario);
+   for (frame = 0; frame < scenario->frames_to_halt; frame++)
+      api->retro_run();
+   if (!check_malformed_case(
+          api->retro_serialize(replay_state, sizeof(replay_state)),
+          scenario,
+          "serialize reset replay") ||
+       !check_malformed_case(
+          memcmp(halted_state, replay_state, sizeof(halted_state)) == 0,
+          scenario,
+          "reset replay is deterministic"))
+      return false;
+
+   if (!check_malformed_case(
+          api->retro_unserialize(halted_state, sizeof(halted_state)),
+          scenario,
+          "restore halted state") ||
+       !check_malformed_case(
+          api->retro_serialize(replay_state, sizeof(replay_state)),
+          scenario,
+          "serialize restored halted state") ||
+       !check_malformed_case(
+          memcmp(halted_state, replay_state, sizeof(halted_state)) == 0,
+          scenario,
+          "halted state round trip"))
+      return false;
+   api->retro_run();
+   if (!check_malformed_case(
+          api->retro_serialize(replay_state, sizeof(replay_state)),
+          scenario,
+          "serialize restored halted frame") ||
+       !check_malformed_case(
+          memcmp(halted_state, replay_state, sizeof(halted_state)) == 0,
+          scenario,
+          "restored halt remains stable"))
+      return false;
+
+   api->retro_unload_game();
+   return true;
+}
+
+static bool run_malformed_program_suite(const struct core_api *api)
+{
+   size_t index;
+
+   for (index = 0;
+        index < sizeof(malformed_program_cases) / sizeof(malformed_program_cases[0]);
+        index++)
+   {
+      if (!run_malformed_program_case(api, &malformed_program_cases[index]))
+         return false;
+   }
+
+   return true;
+}
+
 static bool run_session(const struct core_api *api)
 {
    const size_t expected_state_size = chip8_state_size;
@@ -1057,7 +1371,7 @@ static bool run_session(const struct core_api *api)
                  strcmp(system_info.library_name, "CoreKit CHIP-8") == 0,
               "library name") ||
        !check(system_info.library_version != NULL &&
-                 strcmp(system_info.library_version, "0.5.0-phase4") == 0,
+                 strcmp(system_info.library_version, "0.6.0-phase4") == 0,
               "library version") ||
        !check(system_info.valid_extensions != NULL &&
                  strcmp(system_info.valid_extensions, "ch8") == 0,
@@ -1151,13 +1465,24 @@ static bool run_session(const struct core_api *api)
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
-   current_state[6] |= 1;
+   write_u16_le(&current_state[chip8_state_pc_offset], 0x1003);
    if (!check(!api->retro_unserialize(current_state, expected_state_size),
-              "malformed state rejection") ||
+              "unreachable program-counter state rejection") ||
        !check(api->retro_serialize(current_state, expected_state_size),
               "serialize after rejected state") ||
        !check(memcmp(state, current_state, expected_state_size) == 0,
               "rejected state is transactional"))
+      goto cleanup;
+
+   memcpy(current_state, state, expected_state_size);
+   current_state[chip8_state_stack_pointer_offset] = 1;
+   write_u16_le(&current_state[chip8_state_stack_offset], 0x1001);
+   if (!check(!api->retro_unserialize(current_state, expected_state_size),
+              "unreachable return-address state rejection") ||
+       !check(api->retro_serialize(current_state, expected_state_size),
+              "serialize after rejected return address") ||
+       !check(memcmp(state, current_state, expected_state_size) == 0,
+              "rejected return address is transactional"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -1241,6 +1566,7 @@ static bool run_session(const struct core_api *api)
    api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
    if (!run_arithmetic_suite(api) || !run_timer_random_suite(api) ||
        !run_keypad_suite(api) || !run_quirk_suite(api) ||
+       !run_malformed_program_suite(api) ||
        !check(api->retro_serialize_size() == 0,
               "state unavailable after instruction suites"))
       goto cleanup;
