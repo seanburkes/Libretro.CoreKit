@@ -37,7 +37,7 @@ live tone and palette options without steady-state frame allocations. The C
 oracle proves runtime output changes, while the RetroArch gate proves persisted
 non-default settings through real frontend lifecycles.
 
-Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
+Phase 4 is complete. A separate NativeAOT CHIP-8 core performs bounded
 in-memory `.ch8` content loading, standard instruction execution under a
 configurable baseline, 60 Hz timers, deterministic random behavior, 64x32
 XRGB8888 rendering, complete CHIP-8 keypad mapping across the standard
@@ -45,6 +45,9 @@ RetroPad, deterministic sound-timer audio, reset, pinned system RAM, and
 transactional state loading. Six independent interpreter and display quirk
 options apply at content load and through frontend runtime updates, and
 effective choices are preserved in version-4 state.
+Malformed execution halts deterministically without partial memory writes, and
+the independent host proves byte-identical reset and state replay across stack,
+control-flow, opcode, and memory-boundary failures.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -110,7 +113,8 @@ registration/device forwarding are checked in the same frontend gate, along
 with persisted non-default core options. It also loads CHIP-8 test content with
 all compatibility alternatives persisted, verifies the changed shift behavior,
 starts the sound timer, maps all 16 keypad controls, and round-trips a framed
-version-4 state before reset and unload. The pinned source
+version-4 state plus a halted `0xFFF` boundary state before reset and unload.
+The pinned source
 build applies the narrow command-poller lifetime fix in
 `eng/retroarch/0001-netcmd-return-after-reinit.patch`; without it, lifecycle
 commands can free the UDP command object while it is still being polled. Set
