@@ -1,6 +1,9 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using Libretro.Core.Abi;
+using Libretro.Core.Environment;
 using Libretro.Core.Hosting;
+using Libretro.Core.Logging;
 
 namespace Libretro.NativeAot.Chip8.Core;
 
@@ -24,8 +27,9 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private const int DisplayOffset = 72;
     private const int MemoryOffset = DisplayOffset + (Width * Height);
     private const uint InitialRandomState = 0xC0DEF00D;
-    private const uint StateMagic = 0x33533843;
-    private const ushort StateVersion = 3;
+    private const uint StateMagic = 0x34533843;
+    private const ushort StateVersion = 4;
+    private const byte SupportedQuirkMask = 0x3F;
 
     private static ReadOnlySpan<byte> FontData =>
     [
@@ -85,11 +89,12 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private byte _soundTimer;
     private byte _stackPointer;
     private bool _halted;
+    private Chip8Quirks _quirks;
     private RetroDevice _controllerDevice = RetroDevice.Joypad;
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit CHIP-8",
-        "0.4.0-phase4",
+        "0.5.0-phase4",
         "ch8");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
@@ -97,7 +102,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     public void ConfigureEnvironment(LibretroEnvironmentContext context)
     {
-        _ = context;
+        _ = context.Environment.SetCoreOptionsV2(Chip8EnvironmentData.CoreOptions);
     }
 
     public void Initialize(LibretroInitializationContext context)
@@ -116,6 +121,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         }
 
         _ = context.Environment.SetControllerInfo(Chip8EnvironmentData.ControllerInfo);
+        UpdateCoreOptions(context.Environment, context.Logger);
         Array.Clear(_content);
         content.CopyTo(_content);
         _contentLength = content.Length;
@@ -156,6 +162,11 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     public void RunFrame(ref LibretroFrameContext context)
     {
+        if (context.CoreOptionsUpdated)
+        {
+            UpdateCoreOptions(context.Environment, context.Logger);
+        }
+
         UpdateKeys(_controllerDevice == RetroDevice.Joypad
             ? context.PollRetroPad()
             : (ushort)0);
@@ -204,7 +215,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         destination[15] = _soundTimer;
         destination[16] = _stackPointer;
         destination[17] = _halted ? (byte)1 : (byte)0;
-        destination[18] = 0;
+        destination[18] = (byte)_quirks;
         destination[19] = 0;
         BinaryPrimitives.WriteUInt32LittleEndian(destination[20..], _audioPhase);
         _registers.CopyTo(destination[RegisterOffset..]);
@@ -235,11 +246,12 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         var audioPhase = BinaryPrimitives.ReadUInt32LittleEndian(source[20..]);
         var stackPointer = source[16];
         var halted = source[17];
+        var quirks = source[18];
         if ((programCounter & 1) != 0 || programCounter > MemorySize ||
             (programCounter > MemorySize - 2 && halted == 0) ||
             indexRegister >= MemorySize || randomState == 0 || audioPhase >= AudioSampleRate ||
             stackPointer > _stack.Length || halted > 1 ||
-            source[18] != 0 || source[19] != 0)
+            (quirks & ~SupportedQuirkMask) != 0 || source[19] != 0)
         {
             return false;
         }
@@ -270,6 +282,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         _soundTimer = source[15];
         _stackPointer = stackPointer;
         _halted = halted != 0;
+        _quirks = (Chip8Quirks)quirks;
         source.Slice(RegisterOffset, _registers.Length).CopyTo(_registers);
         for (var index = 0; index < _stack.Length; index++)
         {
@@ -296,6 +309,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     {
         UnloadContent();
         _controllerDevice = RetroDevice.Joypad;
+        _quirks = Chip8Quirks.None;
     }
 
     private bool ExecuteInstruction()
@@ -377,7 +391,9 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 _indexRegister = address;
                 return true;
             case 0xB000:
-                var jumpAddress = address + _registers[0];
+                var jumpAddress = HasQuirk(Chip8Quirks.JumpWithVx)
+                    ? (address & 0x00FF) + _registers[register]
+                    : address + _registers[0];
                 if (jumpAddress > MemorySize)
                 {
                     return false;
@@ -427,6 +443,11 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 return true;
             case 0xF000 when value == 0x1E:
                 var indexRegister = _indexRegister + _registers[register];
+                if (HasQuirk(Chip8Quirks.SetVfOnIndexOverflow))
+                {
+                    _registers[0xF] = indexRegister >= MemorySize ? (byte)1 : (byte)0;
+                }
+
                 if (indexRegister >= MemorySize)
                 {
                     return false;
@@ -472,13 +493,13 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 _registers[register] = right;
                 return true;
             case 0x1:
-                _registers[register] = (byte)(left | right);
+                CompleteLogicOperation(register, (byte)(left | right));
                 return true;
             case 0x2:
-                _registers[register] = (byte)(left & right);
+                CompleteLogicOperation(register, (byte)(left & right));
                 return true;
             case 0x3:
-                _registers[register] = (byte)(left ^ right);
+                CompleteLogicOperation(register, (byte)(left ^ right));
                 return true;
             case 0x4:
                 var sum = left + right;
@@ -490,19 +511,30 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 _registers[0xF] = left >= right ? (byte)1 : (byte)0;
                 return true;
             case 0x6:
-                _registers[register] = (byte)(left >> 1);
-                _registers[0xF] = (byte)(left & 1);
+                var rightShiftValue = HasQuirk(Chip8Quirks.ShiftWithVy) ? right : left;
+                _registers[register] = (byte)(rightShiftValue >> 1);
+                _registers[0xF] = (byte)(rightShiftValue & 1);
                 return true;
             case 0x7:
                 _registers[register] = (byte)(right - left);
                 _registers[0xF] = right >= left ? (byte)1 : (byte)0;
                 return true;
             case 0xE:
-                _registers[register] = (byte)(left << 1);
-                _registers[0xF] = (byte)(left >> 7);
+                var leftShiftValue = HasQuirk(Chip8Quirks.ShiftWithVy) ? right : left;
+                _registers[register] = (byte)(leftShiftValue << 1);
+                _registers[0xF] = (byte)(leftShiftValue >> 7);
                 return true;
             default:
                 return false;
+        }
+    }
+
+    private void CompleteLogicOperation(int register, byte result)
+    {
+        _registers[register] = result;
+        if (HasQuirk(Chip8Quirks.ClearVfOnLogic))
+        {
+            _registers[0xF] = 0;
         }
     }
 
@@ -514,6 +546,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         }
 
         _registers.AsSpan(0, lastRegister + 1).CopyTo(_memory.AsSpan(_indexRegister));
+        IncrementIndexAfterTransfer(lastRegister);
         return true;
     }
 
@@ -526,7 +559,16 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
         _memory.AsSpan(_indexRegister, lastRegister + 1)
             .CopyTo(_registers.AsSpan(0, lastRegister + 1));
+        IncrementIndexAfterTransfer(lastRegister);
         return true;
+    }
+
+    private void IncrementIndexAfterTransfer(int lastRegister)
+    {
+        if (HasQuirk(Chip8Quirks.IncrementIndexOnTransfer))
+        {
+            _indexRegister = (ushort)((_indexRegister + lastRegister + 1) & 0x0FFF);
+        }
     }
 
     private byte NextRandomByte()
@@ -568,6 +610,8 @@ internal sealed unsafe class Chip8Core : ILibretroCore
             return false;
         }
 
+        originX %= Width;
+        originY %= Height;
         _registers[0xF] = 0;
         for (var row = 0; row < height; row++)
         {
@@ -579,8 +623,16 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                     continue;
                 }
 
-                var x = (originX + column) % Width;
-                var y = (originY + row) % Height;
+                var targetX = originX + column;
+                var targetY = originY + row;
+                if (HasQuirk(Chip8Quirks.ClipSprites) &&
+                    (targetX >= Width || targetY >= Height))
+                {
+                    continue;
+                }
+
+                var x = targetX % Width;
+                var y = targetY % Height;
                 var pixel = (y * Width) + x;
                 if (_display[pixel] != 0)
                 {
@@ -623,6 +675,83 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private static bool IsPressed(ushort input, RetroJoypadId id) =>
         (input & (1 << (int)id)) != 0;
 
+    private bool HasQuirk(Chip8Quirks quirk) => (_quirks & quirk) != 0;
+
+    private void UpdateCoreOptions(RetroEnvironment environment, RetroLogger logger)
+    {
+        var updated = _quirks;
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.ShiftSourceOptionKey,
+            "vy"u8,
+            "vx"u8,
+            Chip8Quirks.ShiftWithVy,
+            updated);
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.LogicVfOptionKey,
+            "clear"u8,
+            "preserve"u8,
+            Chip8Quirks.ClearVfOnLogic,
+            updated);
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.MemoryIndexOptionKey,
+            "increment"u8,
+            "unchanged"u8,
+            Chip8Quirks.IncrementIndexOnTransfer,
+            updated);
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.JumpOffsetOptionKey,
+            "vx"u8,
+            "v0"u8,
+            Chip8Quirks.JumpWithVx,
+            updated);
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.IndexOverflowOptionKey,
+            "set"u8,
+            "preserve"u8,
+            Chip8Quirks.SetVfOnIndexOverflow,
+            updated);
+        updated = ReadQuirk(
+            environment,
+            Chip8EnvironmentData.SpriteEdgesOptionKey,
+            "clip"u8,
+            "wrap"u8,
+            Chip8Quirks.ClipSprites,
+            updated);
+
+        if (updated != _quirks)
+        {
+            _quirks = updated;
+            _ = logger.Write(RetroLogLevel.Info, "CoreKit CHIP-8 quirk options updated\n\0"u8);
+        }
+    }
+
+    private static Chip8Quirks ReadQuirk(
+        RetroEnvironment environment,
+        byte* key,
+        ReadOnlySpan<byte> enabledValue,
+        ReadOnlySpan<byte> disabledValue,
+        Chip8Quirks quirk,
+        Chip8Quirks fallback)
+    {
+        if (!environment.GetVariable(key, out var value) || value == null)
+        {
+            return fallback;
+        }
+
+        var option = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(value);
+        if (option.SequenceEqual(enabledValue))
+        {
+            return fallback | quirk;
+        }
+
+        return option.SequenceEqual(disabledValue) ? fallback & ~quirk : fallback;
+    }
+
     private void ResetMachine()
     {
         Array.Clear(_memory);
@@ -646,5 +775,17 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         _soundTimer = 0;
         _stackPointer = 0;
         _halted = false;
+    }
+
+    [Flags]
+    private enum Chip8Quirks : byte
+    {
+        None = 0,
+        ShiftWithVy = 1 << 0,
+        ClearVfOnLogic = 1 << 1,
+        IncrementIndexOnTransfer = 1 << 2,
+        JumpWithVx = 1 << 3,
+        SetVfOnIndexOverflow = 1 << 4,
+        ClipSprites = 1 << 5,
     }
 }

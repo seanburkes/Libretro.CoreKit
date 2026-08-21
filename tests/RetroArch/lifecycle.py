@@ -192,12 +192,19 @@ def exercise_rejected_content(sock, port, core, missing_content):
     probe(sock, port, "rejected content load")
 
 
-def exercise_chip8_content(sock, port, core, content):
+def exercise_chip8_content(sock, port, core, content, state_path, log_path):
     send(sock, port, f"LOAD_CONTENT {core}|{content}")
     wait_for(sock, port, lambda value: "PLAYING" in value, "CHIP-8 content start")
     send(sock, port, "RESET")
     time.sleep(0.05)
     probe(sock, port, "CHIP-8 RESET")
+    wait_for_core_ram(
+        sock,
+        port,
+        0x310,
+        (4,),
+        "persisted CHIP-8 shift-source option",
+    )
     for button_id, chip8_key in KEYPAD_MAPPING:
         send_retropad(sock, button_id, True)
         try:
@@ -211,6 +218,7 @@ def exercise_chip8_content(sock, port, core, content):
         finally:
             send_retropad(sock, button_id, False)
             time.sleep(0.05)
+    save_and_restore_chip8_state(sock, port, state_path, log_path)
     send(sock, port, "UNLOAD_CORE")
     wait_for(
         sock,
@@ -219,6 +227,57 @@ def exercise_chip8_content(sock, port, core, content):
         "CHIP-8 core unload",
     )
     probe(sock, port, "CHIP-8 UNLOAD_CORE")
+
+
+def save_and_restore_chip8_state(sock, port, state_path, log_path):
+    log_start = os.path.getsize(log_path)
+    send(sock, port, "SAVE_STATE_SLOT 0")
+    wait_for_file(state_path, 6240, "framed 6,216-byte CHIP-8 state")
+    completed = (
+        f'[INFO] [State] save task COMPLETED for slot 0, path "{state_path}" '
+        "(6240 bytes)."
+    )
+    wait_for_logged(
+        log_path,
+        log_start,
+        completed,
+        "RetroArch CHIP-8 state-save task completion",
+    )
+    with open(state_path, "rb") as state_file:
+        state = state_file.read()
+    if (
+        state[:8] != b"RASTATE\x01"
+        or state[8:12] != b"MEM "
+        or int.from_bytes(state[12:16], "little") != 6216
+        or state[16:20] != b"C8S4"
+        or state[34] != 0x3F
+        or state[-8:] != b"END \x00\x00\x00\x00"
+    ):
+        raise RuntimeError("RetroArch CHIP-8 state framing or quirk flags are invalid")
+
+    send(sock, port, "WRITE_CORE_RAM 310 00")
+    wait_for_core_ram(
+        sock,
+        port,
+        0x310,
+        (0,),
+        "CHIP-8 state-restore mutation",
+    )
+    log_start = os.path.getsize(log_path)
+    send(sock, port, "LOAD_STATE")
+    wait_for_logged(
+        log_path,
+        log_start,
+        f'[INFO] [State] Loading state "{state_path}", 6240 bytes.',
+        "RetroArch CHIP-8 state-load dispatch",
+    )
+    wait_for_core_ram(
+        sock,
+        port,
+        0x310,
+        (4,),
+        "CHIP-8 version-4 state restoration",
+    )
 
 
 def save_supported_state(sock, port, state_path, log_path):
@@ -306,6 +365,8 @@ def parse_args():
     parser.add_argument("--control-core", required=True)
     parser.add_argument("--chip8-core", required=True)
     parser.add_argument("--chip8-content", required=True)
+    parser.add_argument("--chip8-options", required=True)
+    parser.add_argument("--chip8-state", required=True)
     parser.add_argument("--cycles", type=int, default=50)
     parser.add_argument("--rss-limit-mib", type=int, default=16)
     parser.add_argument("--port", type=int, default=55355)
@@ -365,7 +426,7 @@ def quit_frontend(process, sock, port):
 
 def main():
     args = parse_args()
-    for path in (args.log, args.state, args.save):
+    for path in (args.log, args.state, args.save, args.chip8_state):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         try:
             os.remove(path)
@@ -377,11 +438,22 @@ def main():
             'corekit_probe_palette = "monochrome"\n'
             'corekit_probe_tone = "off"\n'
         )
+    os.makedirs(os.path.dirname(args.chip8_options), exist_ok=True)
+    with open(args.chip8_options, "w", encoding="utf-8") as options_file:
+        options_file.write(
+            'corekit_chip8_shift_source = "vy"\n'
+            'corekit_chip8_logic_vf = "clear"\n'
+            'corekit_chip8_memory_index = "increment"\n'
+            'corekit_chip8_jump_offset = "vx"\n'
+            'corekit_chip8_index_overflow = "set"\n'
+            'corekit_chip8_sprite_edges = "clip"\n'
+        )
     os.makedirs(os.path.dirname(args.chip8_content), exist_ok=True)
     with open(args.chip8_content, "wb") as content_file:
         content_file.write(
             bytes.fromhex(
-                "00e0 6003 f018 6000 6108 a216 d015 f20a a300 f255 120e "
+                "6003 6108 8016 a310 f055 6003 f018 6000 6108 a21e d015 "
+                "f20a a300 f255 1216 "
                 "f0909090f0"
             )
         )
@@ -408,6 +480,8 @@ def main():
             args.port,
             args.chip8_core,
             args.chip8_content,
+            args.chip8_state,
+            args.log,
         )
         wait_for_logged(
             args.log,
@@ -415,8 +489,14 @@ def main():
             "[libretro INFO] CoreKit CHIP-8 content accepted",
             "RetroArch CHIP-8 content load",
         )
+        wait_for_logged(
+            args.log,
+            0,
+            "[libretro INFO] CoreKit CHIP-8 quirk options updated",
+            "RetroArch CHIP-8 quirk options",
+        )
         print(
-            "CHIP-8 content, sound timer, full keypad, reset, and unload: accepted",
+            "CHIP-8 options, state v4, sound, keypad, reset, and unload: accepted",
             flush=True,
         )
 

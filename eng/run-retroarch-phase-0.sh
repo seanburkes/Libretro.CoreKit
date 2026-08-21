@@ -22,6 +22,8 @@ state_path="${profile_root}/config/retroarch/states/CoreKit NativeAOT Probe/Core
 save_path="${profile_root}/config/retroarch/saves/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.srm"
 options_path="${profile_root}/config/retroarch/config/CoreKit NativeAOT Probe/CoreKit NativeAOT Probe.opt"
 chip8_content_path="${ra_root}/chip8-test-content.ch8"
+chip8_options_path="${profile_root}/config/retroarch/config/CoreKit CHIP-8/CoreKit CHIP-8.opt"
+chip8_state_path="${profile_root}/config/retroarch/states/CoreKit CHIP-8/chip8-test-content.state"
 config_path="${COREKIT_RETROARCH_CONFIG:-${repo_root}/tests/RetroArch/stress.cfg}"
 
 if [[ -z "${RETROARCH_BINARY:-}" ]]; then
@@ -84,6 +86,8 @@ python3 "${repo_root}/tests/RetroArch/lifecycle.py" \
   --control-core "${installed_control}" \
   --chip8-core "${installed_chip8}" \
   --chip8-content "${chip8_content_path}" \
+  --chip8-options "${chip8_options_path}" \
+  --chip8-state "${chip8_state_path}" \
   --cycles "${cycles}" \
   --rss-limit-mib "${rss_limit}" \
   --state "${state_path}" \
