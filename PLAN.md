@@ -297,13 +297,18 @@ anticipated Craterboy requirements until a second implementation needs them.
 
 ## Phase 5: Craterboy Readiness Work
 
+**Status:** In progress. Preallocated interleaved stereo output is complete in
+`Craterboy.Core`; see [PHASE-5.md](PHASE-5.md) for the cross-repository boundary,
+evidence, and remaining gate.
+
 Complete these changes in `Craterboy.Core` before presenting it as the flagship
 libretro core:
 
 - Reach a documented playable DMG milestone with the existing differential and
   ROM-test gates passing.
 - Emit preallocated interleaved stereo samples rather than the current mono
-  mixed stream.
+  mixed stream. **Complete:** `Craterboy.Core` now exposes complete left/right
+  frames through a bounded allocation-free drain.
 - Provide a stable, allocation-free frame access path.
 - Keep raw Game Boy pixels independent from presentation palettes.
 - Implement explicit, versioned state serialization and transactional loading.
@@ -483,10 +488,13 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Complete the incremental environment wrappers in [PHASE-1.md](PHASE-1.md).
-2. Keep every addition checked by the independent C host and native matrix.
-3. Define the reusable host only after the ABI ownership rules are proven.
-4. Build the software sample, then CHIP-8, before freezing a package API.
-5. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
-6. Prepare Craterboy's stereo, serialization, and stable-memory APIs before
-   creating `Craterboy.Libretro`.
+1. Formalize Craterboy's allocation-free raw-frame contract.
+2. Complete Craterboy's versioned transactional state format.
+3. Expose stable save RAM and define the supported system/video RAM and RTC
+   regions.
+4. Keep the playable-DMG differential and ROM-test milestone moving in the
+   Craterboy repository.
+5. Benchmark the managed emulator under NativeAOT with video and audio enabled.
+6. Create `Craterboy.Libretro` only after those emulator-owned contracts are
+   proven.
+7. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
