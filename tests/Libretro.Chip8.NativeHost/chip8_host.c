@@ -52,9 +52,13 @@ struct observations
    unsigned input_poll_calls;
    unsigned input_state_calls;
    uint64_t last_video_hash;
+   uint64_t last_audio_hash;
+   uint64_t tone_audio_hash;
    bool provide_right;
    bool left_sprite;
    bool right_sprite;
+   bool last_audio_silent;
+   bool last_audio_tone;
    bool callback_error;
 };
 
@@ -64,11 +68,12 @@ static struct observations observations;
 
 enum
 {
-   chip8_state_size = 6212,
+   chip8_state_size = 6216,
    chip8_state_pc_offset = 6,
    chip8_state_random_offset = 10,
    chip8_state_delay_offset = 14,
    chip8_state_sound_offset = 15,
+   chip8_state_audio_phase_offset = 20,
 };
 
 static const uint8_t test_content[] = {
@@ -154,7 +159,7 @@ static const uint8_t arithmetic_content[] = {
 static const uint8_t timer_random_content[] = {
    CHIP8_OPCODE(0x6005),
    CHIP8_OPCODE(0xF015),
-   CHIP8_OPCODE(0x6003),
+   CHIP8_OPCODE(0x6002),
    CHIP8_OPCODE(0xF018),
    CHIP8_OPCODE(0xF10A),
    CHIP8_OPCODE(0xF207),
@@ -303,15 +308,37 @@ static void RETRO_CALLCONV audio_sample_callback(int16_t left, int16_t right)
 
 static size_t RETRO_CALLCONV audio_batch_callback(const int16_t *data, size_t frames)
 {
-   size_t index;
+   size_t frame;
+   bool silent = true;
+   bool tone = true;
+   bool saw_positive = false;
+   bool saw_negative = false;
 
    if (data == NULL || frames != 800)
       observations.callback_error = true;
-   for (index = 0; data != NULL && index < frames * 2; index++)
+   observations.last_audio_hash = data == NULL
+      ? 0
+      : hash_bytes(data, frames * 2 * sizeof(*data));
+   for (frame = 0; data != NULL && frame < frames; frame++)
    {
-      if (data[index] != 0)
+      int16_t left = data[frame * 2];
+      int16_t right = data[(frame * 2) + 1];
+
+      if (left != right)
          observations.callback_error = true;
+      if (left != 0)
+         silent = false;
+      if (left == 6000)
+         saw_positive = true;
+      else if (left == -6000)
+         saw_negative = true;
+      else
+         tone = false;
    }
+   observations.last_audio_silent = silent;
+   observations.last_audio_tone = tone && saw_positive && saw_negative;
+   if (observations.last_audio_tone && observations.tone_audio_hash == 0)
+      observations.tone_audio_hash = observations.last_audio_hash;
    observations.audio_batch_calls++;
    return frames;
 }
@@ -400,6 +427,14 @@ static uint32_t read_u32_le(const uint8_t *data)
       ((uint32_t)data[3] << 24);
 }
 
+static void write_u32_le(uint8_t *data, uint32_t value)
+{
+   data[0] = (uint8_t)value;
+   data[1] = (uint8_t)(value >> 8);
+   data[2] = (uint8_t)(value >> 16);
+   data[3] = (uint8_t)(value >> 24);
+}
+
 static bool load_test_content(
       const struct core_api *api,
       const uint8_t *content,
@@ -464,12 +499,14 @@ static bool run_arithmetic_suite(const struct core_api *api)
 
 static bool run_timer_random_suite(const struct core_api *api)
 {
-   static const uint8_t expected_output[] = {0x03, 0x06, 0x04, 0x22, 0xC0};
+   static const uint8_t expected_output[] = {0x02, 0x06, 0x04, 0x22, 0xC0};
    uint8_t wait_state[chip8_state_size];
    uint8_t completed_state[chip8_state_size];
    uint8_t replay_state[chip8_state_size];
    uint8_t reset_state[chip8_state_size];
    uint8_t *system_ram;
+   uint64_t first_audio_hash;
+   uint64_t second_audio_hash;
    unsigned frame;
 
    observations.provide_right = false;
@@ -487,19 +524,27 @@ static bool run_timer_random_suite(const struct core_api *api)
    api->retro_run();
    if (!check(api->retro_serialize(wait_state, sizeof(wait_state)),
               "serialize key-wait state") ||
+       !check(observations.last_audio_tone, "sound timer emits stereo tone") ||
+       !check(observations.last_audio_hash != 0, "first tone audio hash") ||
        !check(read_u16_le(&wait_state[chip8_state_pc_offset]) == 0x208,
               "key wait retains program counter") ||
        !check(read_u32_le(&wait_state[chip8_state_random_offset]) == UINT32_C(0xC0DEF00D),
               "random state is unchanged while waiting") ||
        !check(wait_state[chip8_state_delay_offset] == 4 &&
-                 wait_state[chip8_state_sound_offset] == 2,
-              "timers tick at end of waiting frame"))
+                 wait_state[chip8_state_sound_offset] == 1,
+              "timers tick at end of waiting frame") ||
+       !check(read_u32_le(&wait_state[chip8_state_audio_phase_offset]) == 16000,
+              "first tone frame advances audio phase"))
       return false;
+   first_audio_hash = observations.last_audio_hash;
 
    observations.provide_right = true;
    api->retro_run();
    if (!check(memcmp(&system_ram[0x350], expected_output, sizeof(expected_output)) == 0,
               "key, timer, and deterministic random results") ||
+       !check(observations.last_audio_tone, "continued sound-timer tone") ||
+       !check(observations.last_audio_hash != first_audio_hash,
+              "tone phase changes the next audio batch") ||
        !check(api->retro_serialize(completed_state, sizeof(completed_state)),
               "serialize timer and random state") ||
        !check(read_u16_le(&completed_state[chip8_state_pc_offset]) == 0x214,
@@ -507,9 +552,12 @@ static bool run_timer_random_suite(const struct core_api *api)
        !check(read_u32_le(&completed_state[chip8_state_random_offset]) == UINT32_C(0x394B8BCA),
               "deterministic random sequence state") ||
        !check(completed_state[chip8_state_delay_offset] == 3 &&
-                 completed_state[chip8_state_sound_offset] == 1,
-              "timers tick once per completed frame"))
+                 completed_state[chip8_state_sound_offset] == 0,
+              "timers tick once per completed frame") ||
+       !check(read_u32_le(&completed_state[chip8_state_audio_phase_offset]) == 32000,
+              "second tone frame advances audio phase"))
       return false;
+   second_audio_hash = observations.last_audio_hash;
 
    if (!check(api->retro_unserialize(wait_state, sizeof(wait_state)),
               "restore key-wait state"))
@@ -518,7 +566,9 @@ static bool run_timer_random_suite(const struct core_api *api)
    if (!check(api->retro_serialize(replay_state, sizeof(replay_state)),
               "serialize replayed timer and random state") ||
        !check(memcmp(completed_state, replay_state, sizeof(completed_state)) == 0,
-              "timer and random state replay deterministically"))
+              "timer, random, and audio phase replay deterministically") ||
+       !check(observations.last_audio_hash == second_audio_hash,
+              "state restores deterministic audio batch"))
       return false;
 
    observations.provide_right = false;
@@ -527,7 +577,9 @@ static bool run_timer_random_suite(const struct core_api *api)
    if (!check(api->retro_serialize(reset_state, sizeof(reset_state)),
               "serialize reset timer and random state") ||
        !check(memcmp(wait_state, reset_state, sizeof(wait_state)) == 0,
-              "reset restores timers and random seed"))
+              "reset restores timers, random seed, and audio phase") ||
+       !check(observations.last_audio_hash == first_audio_hash,
+              "reset restores deterministic audio batch"))
       return false;
 
    for (frame = 0; frame < 4; frame++)
@@ -536,7 +588,11 @@ static bool run_timer_random_suite(const struct core_api *api)
               "serialize expired timer state") ||
        !check(reset_state[chip8_state_delay_offset] == 0 &&
                  reset_state[chip8_state_sound_offset] == 0,
-              "timers expire while waiting for a key"))
+              "timers expire while waiting for a key") ||
+       !check(read_u32_le(&reset_state[chip8_state_audio_phase_offset]) == 32000,
+              "silent frames preserve audio phase") ||
+       !check(observations.last_audio_silent,
+              "expired sound timer restores silent audio"))
       return false;
 
    api->retro_unload_game();
@@ -566,7 +622,7 @@ static bool run_session(const struct core_api *api)
                  strcmp(system_info.library_name, "CoreKit CHIP-8") == 0,
               "library name") ||
        !check(system_info.library_version != NULL &&
-                 strcmp(system_info.library_version, "0.2.0-phase4") == 0,
+                 strcmp(system_info.library_version, "0.3.0-phase4") == 0,
               "library version") ||
        !check(system_info.valid_extensions != NULL &&
                  strcmp(system_info.valid_extensions, "ch8") == 0,
@@ -642,6 +698,7 @@ static bool run_session(const struct core_api *api)
        !check(observations.input_poll_calls == 1 && observations.input_state_calls == 1,
               "RetroPad polling") ||
        !check(observations.audio_batch_calls == 1, "silent audio timing batch") ||
+       !check(observations.last_audio_silent, "zero sound timer emits silence") ||
        !check(observations.audio_sample_calls == 0, "batch audio preference"))
       goto cleanup;
 
@@ -653,7 +710,7 @@ static bool run_session(const struct core_api *api)
    if (state == NULL || current_state == NULL)
       goto cleanup;
    if (!check(api->retro_serialize(state, expected_state_size), "serialize state") ||
-       !check(memcmp(state, "C8S2", 4) == 0, "serialized state header"))
+       !check(memcmp(state, "C8S3", 4) == 0, "serialized state header"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -667,13 +724,13 @@ static bool run_session(const struct core_api *api)
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
-   memcpy(current_state, "C8S1\x01\x00", 6);
+   memcpy(current_state, "C8S2\x02\x00", 6);
    if (!check(!api->retro_unserialize(current_state, expected_state_size),
-              "version-1 state rejection") ||
+              "version-2 state rejection") ||
        !check(api->retro_serialize(current_state, expected_state_size),
-              "serialize after rejected version-1 state") ||
+              "serialize after rejected version-2 state") ||
        !check(memcmp(state, current_state, expected_state_size) == 0,
-              "rejected version-1 state is transactional"))
+              "rejected version-2 state is transactional"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -684,6 +741,16 @@ static bool run_session(const struct core_api *api)
               "serialize after rejected random state") ||
        !check(memcmp(state, current_state, expected_state_size) == 0,
               "rejected random state is transactional"))
+      goto cleanup;
+
+   memcpy(current_state, state, expected_state_size);
+   write_u32_le(&current_state[chip8_state_audio_phase_offset], 48000);
+   if (!check(!api->retro_unserialize(current_state, expected_state_size),
+              "out-of-range audio phase rejection") ||
+       !check(api->retro_serialize(current_state, expected_state_size),
+              "serialize after rejected audio phase") ||
+       !check(memcmp(state, current_state, expected_state_size) == 0,
+              "rejected audio phase is transactional"))
       goto cleanup;
 
    observations.provide_right = true;
@@ -768,7 +835,11 @@ static bool parse_cycles(const char *text, unsigned *cycles)
    return true;
 }
 
-static bool write_result(const char *path, unsigned cycles, uint64_t video_hash)
+static bool write_result(
+      const char *path,
+      unsigned cycles,
+      uint64_t video_hash,
+      uint64_t audio_hash)
 {
    FILE *stream = fopen(path, "w");
    bool written;
@@ -777,9 +848,11 @@ static bool write_result(const char *path, unsigned cycles, uint64_t video_hash)
       return false;
    written = fprintf(
       stream,
-      "{\"result\":\"pass\",\"cycles\":%u,\"video_hash\":\"%016llx\"}\n",
+      "{\"result\":\"pass\",\"cycles\":%u,"
+      "\"video_hash\":\"%016llx\",\"tone_audio_hash\":\"%016llx\"}\n",
       cycles,
-      (unsigned long long)video_hash) >= 0;
+      (unsigned long long)video_hash,
+      (unsigned long long)audio_hash) >= 0;
    if (fclose(stream) != 0)
       written = false;
    return written;
@@ -791,6 +864,7 @@ int main(int argc, char **argv)
    unsigned cycles = 25;
    unsigned cycle;
    uint64_t video_hash = 0;
+   uint64_t audio_hash = 0;
 
    if (argc < 2 || argc > 4)
    {
@@ -822,7 +896,10 @@ int main(int argc, char **argv)
          return EXIT_FAILURE;
       }
       if (cycle == 0)
+      {
          video_hash = observations.last_video_hash;
+         audio_hash = observations.tone_audio_hash;
+      }
       if (dlclose(handle) != 0)
       {
          fprintf(stderr, "could not close CHIP-8 core: %s\n", dlerror());
@@ -830,7 +907,7 @@ int main(int argc, char **argv)
       }
    }
 
-   if (result_path != NULL && !write_result(result_path, cycles, video_hash))
+   if (result_path != NULL && !write_result(result_path, cycles, video_hash, audio_hash))
    {
       fprintf(stderr, "could not write result file: %s\n", result_path);
       return EXIT_FAILURE;

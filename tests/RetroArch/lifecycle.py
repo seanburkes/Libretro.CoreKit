@@ -319,7 +319,7 @@ def main():
     with open(args.chip8_content, "wb") as content_file:
         content_file.write(
             bytes.fromhex(
-                "00e0 6000 6108 6206 e2a1 7004 a212 d015 1210 "
+                "00e0 6003 f018 6000 6108 6206 e2a1 7004 a216 d015 1214 "
                 "f0909090f000"
             )
         )
@@ -353,7 +353,10 @@ def main():
             "[libretro INFO] CoreKit CHIP-8 content accepted",
             "RetroArch CHIP-8 content load",
         )
-        print("CHIP-8 content load, reset, and unload: accepted", flush=True)
+        print(
+            "CHIP-8 content load, sound timer, reset, and unload: accepted",
+            flush=True,
+        )
 
         for cycle in range(1, args.cycles + 1):
             run_core(
