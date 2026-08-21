@@ -1,9 +1,9 @@
 # Phase 4: CHIP-8 Reference Core
 
-**Status:** In progress. Three vertical slices now cover bounded `.ch8` content,
+**Status:** In progress. Four vertical slices now cover bounded `.ch8` content,
 the standard instruction set under a documented fixed interpreter baseline,
-60 Hz timers, deterministic random behavior, RetroPad input, video, audible
-sound-timer output, reset, and serialized state.
+60 Hz timers, deterministic random behavior, the complete CHIP-8 keypad through
+RetroPad input, video, audible sound-timer output, reset, and serialized state.
 
 ## Implemented slices
 
@@ -37,8 +37,19 @@ Implemented behavior:
   While the sound timer is nonzero, emit a deterministic 440 Hz square wave at
   amplitude +/-6,000; otherwise emit silence. The integer audio phase pauses
   during silence and resets with the virtual machine.
-- Map RetroPad directions to CHIP-8 keys `2`, `8`, `4`, and `6`; A maps to `5`
-  and B maps to `0`.
+- Map every CHIP-8 key to one standard RetroPad control and publish all 16 input
+  descriptors. The original six-control mapping remains unchanged:
+
+  | RetroPad | CHIP-8 | RetroPad | CHIP-8 |
+  | --- | --- | --- | --- |
+  | B | `0` | Y | `1` |
+  | Up | `2` | X | `3` |
+  | Left | `4` | A | `5` |
+  | Right | `6` | L | `7` |
+  | Down | `8` | R | `9` |
+  | L2 | `A` | R2 | `B` |
+  | Select | `C` | Start | `D` |
+  | L3 | `E` | R3 | `F` |
 - Expose the pinned 4 KiB CHIP-8 address space as system RAM.
 - Serialize registers, stack, display, memory, program counter, index register,
   timers, random state, audio phase, stack pointer, and halt state in a
@@ -54,7 +65,8 @@ The focused independent C host resolves all 25 mandatory exports and verifies:
 - rejected call order plus contentless, truncated, and oversized content;
 - content copying, XRGB8888 geometry, silent/audio-timer batches, and RetroPad
   polling;
-- input-sensitive program output and controller disable behavior;
+- input-sensitive program output, all 16 keypad mappings, and controller disable
+  behavior;
 - arithmetic, skip, transfer, BCD, font, indexed-jump, timer, key-wait, and
   deterministic random instruction behavior through system-RAM observations;
 - exact state size, transactional malformed-state rejection, deterministic
@@ -63,25 +75,26 @@ The focused independent C host resolves all 25 mandatory exports and verifies:
 - repeated logical teardown and loader close/reopen under ASan/UBSan.
 
 The pinned RetroArch gate additionally loads deterministic `.ch8` test content
-that starts the sound timer, runs frames through the SDL2 dummy audio path,
-resets, unloads the core, and observes the managed content-load lifecycle
-marker. Linux x64 remains the only RetroArch-supported target.
+that starts the sound timer, runs frames through the SDL2 dummy audio path, and
+waits for CHIP-8 keypad input. The gate drives every standard control through
+RetroArch's Remote RetroPad interface and reads the captured key through exposed
+system RAM before reset and unload. Linux x64 remains the only
+RetroArch-supported target.
 
 Current evidence with .NET SDK 10.0.110:
 
 - 1,000 loader close/reopen and logical content lifecycle cycles complete under
   ASan/UBSan with leak detection disabled for the process-lifetime NativeAOT
   runtime and no sanitizer diagnostic.
-- Pinned RetroArch `7bc72e8735` accepts the CHIP-8 content lifecycle before the
-  existing 50 managed/control switches, state/save process reopens, and normal
-  frontend exits. Peak RSS growth is 7.32 MiB under the 16 MiB ceiling.
+- Pinned RetroArch `7bc72e8735` accepts all 16 Remote RetroPad mappings before
+  the existing 50 managed/control switches, state/save process reopens, and
+  normal frontend exits. Peak RSS growth is 6.79 MiB under the 16 MiB ceiling.
 
 ## Deferred work
 
 Phase 4 is not complete yet. The next slices must add:
 
-- complete keypad mapping and core options for interpreter quirks and display
-  behavior;
+- core options for interpreter quirks and display behavior;
 - broader malformed-program and deterministic replay fixtures;
 - a state-format update for configurable quirk behavior.
 

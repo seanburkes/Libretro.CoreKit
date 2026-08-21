@@ -47,6 +47,26 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         0xF0, 0x80, 0xF0, 0x80, 0x80,
     ];
 
+    private static ReadOnlySpan<RetroJoypadId> KeypadMapping =>
+    [
+        RetroJoypadId.B,
+        RetroJoypadId.Y,
+        RetroJoypadId.Up,
+        RetroJoypadId.X,
+        RetroJoypadId.Left,
+        RetroJoypadId.A,
+        RetroJoypadId.Right,
+        RetroJoypadId.L,
+        RetroJoypadId.Down,
+        RetroJoypadId.R,
+        RetroJoypadId.L2,
+        RetroJoypadId.R2,
+        RetroJoypadId.Select,
+        RetroJoypadId.Start,
+        RetroJoypadId.L3,
+        RetroJoypadId.R3,
+    ];
+
     private readonly byte[] _content = new byte[MaximumProgramSize];
     private readonly byte[] _memory = new byte[MemorySize];
     private readonly byte[] _registers = new byte[16];
@@ -69,7 +89,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit CHIP-8",
-        "0.3.0-phase4",
+        "0.4.0-phase4",
         "ch8");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
@@ -576,13 +596,11 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     private void UpdateKeys(ushort input)
     {
-        Array.Clear(_keys);
-        _keys[0x0] = IsPressed(input, RetroJoypadId.B);
-        _keys[0x2] = IsPressed(input, RetroJoypadId.Up);
-        _keys[0x4] = IsPressed(input, RetroJoypadId.Left);
-        _keys[0x5] = IsPressed(input, RetroJoypadId.A);
-        _keys[0x6] = IsPressed(input, RetroJoypadId.Right);
-        _keys[0x8] = IsPressed(input, RetroJoypadId.Down);
+        var mapping = KeypadMapping;
+        for (var key = 0; key < mapping.Length; key++)
+        {
+            _keys[key] = IsPressed(input, mapping[key]);
+        }
     }
 
     private bool IsKeyPressed(int key) => key < _keys.Length && _keys[key];

@@ -40,9 +40,10 @@ non-default settings through real frontend lifecycles.
 Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
 in-memory `.ch8` content loading, standard instruction execution under a fixed
 modern baseline, 60 Hz timers, deterministic random behavior, 64x32 XRGB8888
-rendering, RetroPad mapping, deterministic sound-timer audio, reset, pinned
-system RAM, and transactional state loading. Full keypad mapping and quirk
-options are deliberately still open.
+rendering, complete CHIP-8 keypad mapping across the standard RetroPad,
+deterministic sound-timer audio, reset, pinned system RAM, and transactional
+state loading. Interpreter and display quirk options are deliberately still
+open.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -83,10 +84,10 @@ session without restarting the core.
 This publishes `corekit_chip8_libretro.so` and runs its focused independent C
 host under ASan/UBSan. The host loads deterministic in-memory `.ch8` test
 content, verifies arithmetic, memory, font, timer, key-wait, random, drawing,
-audible/silent stereo batches, and RetroPad-sensitive behavior, and round-trips
-the versioned state including deterministic audio phase while checking stable
-CHIP-8 system RAM. Use `COREKIT_CHIP8_CYCLES=1000` for the full loader stress
-count.
+audible/silent stereo batches, all 16 RetroPad-to-keypad mappings, and
+controller disable behavior. It round-trips the versioned state including
+deterministic audio phase while checking stable CHIP-8 system RAM. Use
+`COREKIT_CHIP8_CYCLES=1000` for the full loader stress count.
 
 ## Run the Linux RetroArch lifecycle gate
 
