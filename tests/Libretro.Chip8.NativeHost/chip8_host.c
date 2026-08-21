@@ -60,6 +60,17 @@ struct observations
 
 static struct observations observations;
 
+#define CHIP8_OPCODE(value) (uint8_t)((value) >> 8), (uint8_t)(value)
+
+enum
+{
+   chip8_state_size = 6212,
+   chip8_state_pc_offset = 6,
+   chip8_state_random_offset = 10,
+   chip8_state_delay_offset = 14,
+   chip8_state_sound_offset = 15,
+};
+
 static const uint8_t test_content[] = {
    0x00, 0xE0,
    0x60, 0x00,
@@ -71,6 +82,87 @@ static const uint8_t test_content[] = {
    0xD0, 0x15,
    0x12, 0x10,
    0xF0, 0x90, 0x90, 0x90, 0xF0, 0x00,
+};
+
+static const uint8_t arithmetic_content[] = {
+   CHIP8_OPCODE(0x6004),
+   CHIP8_OPCODE(0xB208),
+   CHIP8_OPCODE(0x61EE),
+   CHIP8_OPCODE(0x61EE),
+   CHIP8_OPCODE(0x61EE),
+   CHIP8_OPCODE(0x61EE),
+   CHIP8_OPCODE(0x600A),
+   CHIP8_OPCODE(0x6105),
+   CHIP8_OPCODE(0x8010),
+   CHIP8_OPCODE(0x6203),
+   CHIP8_OPCODE(0x6F01),
+   CHIP8_OPCODE(0x8021),
+   CHIP8_OPCODE(0x8022),
+   CHIP8_OPCODE(0x8023),
+   CHIP8_OPCODE(0x8EF0),
+   CHIP8_OPCODE(0x63FA),
+   CHIP8_OPCODE(0x640A),
+   CHIP8_OPCODE(0x8344),
+   CHIP8_OPCODE(0x6509),
+   CHIP8_OPCODE(0x6604),
+   CHIP8_OPCODE(0x8565),
+   CHIP8_OPCODE(0x6704),
+   CHIP8_OPCODE(0x6809),
+   CHIP8_OPCODE(0x8787),
+   CHIP8_OPCODE(0x6905),
+   CHIP8_OPCODE(0x8906),
+   CHIP8_OPCODE(0x6A81),
+   CHIP8_OPCODE(0x8A0E),
+   CHIP8_OPCODE(0x6B01),
+   CHIP8_OPCODE(0x6C01),
+   CHIP8_OPCODE(0x5BC0),
+   CHIP8_OPCODE(0x6DEE),
+   CHIP8_OPCODE(0x6D11),
+   CHIP8_OPCODE(0x6C02),
+   CHIP8_OPCODE(0x9BC0),
+   CHIP8_OPCODE(0x6DEE),
+   CHIP8_OPCODE(0xA300),
+   CHIP8_OPCODE(0xFF55),
+   CHIP8_OPCODE(0xA3E0),
+   CHIP8_OPCODE(0x6E10),
+   CHIP8_OPCODE(0x605A),
+   CHIP8_OPCODE(0xFE1E),
+   CHIP8_OPCODE(0xF055),
+   CHIP8_OPCODE(0x60E7),
+   CHIP8_OPCODE(0xA330),
+   CHIP8_OPCODE(0xF033),
+   CHIP8_OPCODE(0x6001),
+   CHIP8_OPCODE(0x6102),
+   CHIP8_OPCODE(0x6203),
+   CHIP8_OPCODE(0xA320),
+   CHIP8_OPCODE(0xF255),
+   CHIP8_OPCODE(0x6000),
+   CHIP8_OPCODE(0x6100),
+   CHIP8_OPCODE(0x6200),
+   CHIP8_OPCODE(0xA320),
+   CHIP8_OPCODE(0xF265),
+   CHIP8_OPCODE(0xA323),
+   CHIP8_OPCODE(0xF255),
+   CHIP8_OPCODE(0x600A),
+   CHIP8_OPCODE(0xF029),
+   CHIP8_OPCODE(0xF465),
+   CHIP8_OPCODE(0xA340),
+   CHIP8_OPCODE(0xF455),
+   CHIP8_OPCODE(0x0000),
+};
+
+static const uint8_t timer_random_content[] = {
+   CHIP8_OPCODE(0x6005),
+   CHIP8_OPCODE(0xF015),
+   CHIP8_OPCODE(0x6003),
+   CHIP8_OPCODE(0xF018),
+   CHIP8_OPCODE(0xF10A),
+   CHIP8_OPCODE(0xF207),
+   CHIP8_OPCODE(0xC3FF),
+   CHIP8_OPCODE(0xC4F0),
+   CHIP8_OPCODE(0xA350),
+   CHIP8_OPCODE(0xF455),
+   CHIP8_OPCODE(0x1214),
 };
 
 static bool check(bool condition, const char *message)
@@ -295,9 +387,165 @@ static bool load_api(void *handle, struct core_api *api)
    return true;
 }
 
+static uint16_t read_u16_le(const uint8_t *data)
+{
+   return (uint16_t)(data[0] | ((uint16_t)data[1] << 8));
+}
+
+static uint32_t read_u32_le(const uint8_t *data)
+{
+   return (uint32_t)data[0] |
+      ((uint32_t)data[1] << 8) |
+      ((uint32_t)data[2] << 16) |
+      ((uint32_t)data[3] << 24);
+}
+
+static bool load_test_content(
+      const struct core_api *api,
+      const uint8_t *content,
+      size_t content_size,
+      const char *path)
+{
+   struct retro_game_info game;
+
+   memset(&game, 0, sizeof(game));
+   game.path = path;
+   game.data = content;
+   game.size = content_size;
+   return api->retro_load_game(&game);
+}
+
+static bool run_arithmetic_suite(const struct core_api *api)
+{
+   static const uint8_t expected_registers[] = {
+      0x00, 0x05, 0x03, 0x04, 0x0A, 0x05, 0x04, 0x05,
+      0x09, 0x02, 0x02, 0x01, 0x02, 0x11, 0x01, 0x01,
+   };
+   static const uint8_t expected_values[] = {0x01, 0x02, 0x03};
+   static const uint8_t expected_bcd[] = {0x02, 0x03, 0x01};
+   static const uint8_t expected_font[] = {0xF0, 0x90, 0xF0, 0x90, 0x90};
+   uint8_t state[chip8_state_size];
+   uint8_t *system_ram;
+   unsigned frame;
+
+   if (!check(load_test_content(
+                 api,
+                 arithmetic_content,
+                 sizeof(arithmetic_content),
+                 "/corekit/arithmetic.ch8"),
+              "arithmetic content load"))
+      return false;
+
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (!check(system_ram != NULL, "arithmetic system RAM"))
+      return false;
+
+   for (frame = 0; frame < 6; frame++)
+      api->retro_run();
+
+   if (!check(memcmp(&system_ram[0x300], expected_registers, sizeof(expected_registers)) == 0,
+              "arithmetic and skip instruction results") ||
+       !check(memcmp(&system_ram[0x320], expected_values, sizeof(expected_values)) == 0 &&
+                 memcmp(&system_ram[0x323], expected_values, sizeof(expected_values)) == 0,
+              "register store and load results") ||
+       !check(memcmp(&system_ram[0x330], expected_bcd, sizeof(expected_bcd)) == 0,
+              "binary-coded decimal result") ||
+       !check(memcmp(&system_ram[0x340], expected_font, sizeof(expected_font)) == 0,
+              "font lookup and register load result") ||
+       !check(system_ram[0x3F0] == 0x5A, "index-register addition result") ||
+       !check(api->retro_serialize(state, sizeof(state)), "serialize arithmetic state") ||
+       !check(read_u16_le(&state[8]) == 0x340,
+              "register transfers leave index register unchanged"))
+      return false;
+
+   api->retro_unload_game();
+   return true;
+}
+
+static bool run_timer_random_suite(const struct core_api *api)
+{
+   static const uint8_t expected_output[] = {0x03, 0x06, 0x04, 0x22, 0xC0};
+   uint8_t wait_state[chip8_state_size];
+   uint8_t completed_state[chip8_state_size];
+   uint8_t replay_state[chip8_state_size];
+   uint8_t reset_state[chip8_state_size];
+   uint8_t *system_ram;
+   unsigned frame;
+
+   observations.provide_right = false;
+   if (!check(load_test_content(
+                 api,
+                 timer_random_content,
+                 sizeof(timer_random_content),
+                 "/corekit/timer-random.ch8"),
+              "timer and random content load"))
+      return false;
+
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (!check(system_ram != NULL, "timer and random system RAM"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(wait_state, sizeof(wait_state)),
+              "serialize key-wait state") ||
+       !check(read_u16_le(&wait_state[chip8_state_pc_offset]) == 0x208,
+              "key wait retains program counter") ||
+       !check(read_u32_le(&wait_state[chip8_state_random_offset]) == UINT32_C(0xC0DEF00D),
+              "random state is unchanged while waiting") ||
+       !check(wait_state[chip8_state_delay_offset] == 4 &&
+                 wait_state[chip8_state_sound_offset] == 2,
+              "timers tick at end of waiting frame"))
+      return false;
+
+   observations.provide_right = true;
+   api->retro_run();
+   if (!check(memcmp(&system_ram[0x350], expected_output, sizeof(expected_output)) == 0,
+              "key, timer, and deterministic random results") ||
+       !check(api->retro_serialize(completed_state, sizeof(completed_state)),
+              "serialize timer and random state") ||
+       !check(read_u16_le(&completed_state[chip8_state_pc_offset]) == 0x214,
+              "timer program reaches terminal loop") ||
+       !check(read_u32_le(&completed_state[chip8_state_random_offset]) == UINT32_C(0x394B8BCA),
+              "deterministic random sequence state") ||
+       !check(completed_state[chip8_state_delay_offset] == 3 &&
+                 completed_state[chip8_state_sound_offset] == 1,
+              "timers tick once per completed frame"))
+      return false;
+
+   if (!check(api->retro_unserialize(wait_state, sizeof(wait_state)),
+              "restore key-wait state"))
+      return false;
+   api->retro_run();
+   if (!check(api->retro_serialize(replay_state, sizeof(replay_state)),
+              "serialize replayed timer and random state") ||
+       !check(memcmp(completed_state, replay_state, sizeof(completed_state)) == 0,
+              "timer and random state replay deterministically"))
+      return false;
+
+   observations.provide_right = false;
+   api->retro_reset();
+   api->retro_run();
+   if (!check(api->retro_serialize(reset_state, sizeof(reset_state)),
+              "serialize reset timer and random state") ||
+       !check(memcmp(wait_state, reset_state, sizeof(wait_state)) == 0,
+              "reset restores timers and random seed"))
+      return false;
+
+   for (frame = 0; frame < 4; frame++)
+      api->retro_run();
+   if (!check(api->retro_serialize(reset_state, sizeof(reset_state)),
+              "serialize expired timer state") ||
+       !check(reset_state[chip8_state_delay_offset] == 0 &&
+                 reset_state[chip8_state_sound_offset] == 0,
+              "timers expire while waiting for a key"))
+      return false;
+
+   api->retro_unload_game();
+   return true;
+}
+
 static bool run_session(const struct core_api *api)
 {
-   const size_t expected_state_size = 6204;
+   const size_t expected_state_size = chip8_state_size;
    uint8_t one_byte_content = 0;
    uint8_t *oversized_content = NULL;
    uint8_t *state = NULL;
@@ -318,7 +566,7 @@ static bool run_session(const struct core_api *api)
                  strcmp(system_info.library_name, "CoreKit CHIP-8") == 0,
               "library name") ||
        !check(system_info.library_version != NULL &&
-                 strcmp(system_info.library_version, "0.1.0-phase4") == 0,
+                 strcmp(system_info.library_version, "0.2.0-phase4") == 0,
               "library version") ||
        !check(system_info.valid_extensions != NULL &&
                  strcmp(system_info.valid_extensions, "ch8") == 0,
@@ -405,7 +653,7 @@ static bool run_session(const struct core_api *api)
    if (state == NULL || current_state == NULL)
       goto cleanup;
    if (!check(api->retro_serialize(state, expected_state_size), "serialize state") ||
-       !check(memcmp(state, "C8S1", 4) == 0, "serialized state header"))
+       !check(memcmp(state, "C8S2", 4) == 0, "serialized state header"))
       goto cleanup;
 
    memcpy(current_state, state, expected_state_size);
@@ -416,6 +664,26 @@ static bool run_session(const struct core_api *api)
               "serialize after rejected state") ||
        !check(memcmp(state, current_state, expected_state_size) == 0,
               "rejected state is transactional"))
+      goto cleanup;
+
+   memcpy(current_state, state, expected_state_size);
+   memcpy(current_state, "C8S1\x01\x00", 6);
+   if (!check(!api->retro_unserialize(current_state, expected_state_size),
+              "version-1 state rejection") ||
+       !check(api->retro_serialize(current_state, expected_state_size),
+              "serialize after rejected version-1 state") ||
+       !check(memcmp(state, current_state, expected_state_size) == 0,
+              "rejected version-1 state is transactional"))
+      goto cleanup;
+
+   memcpy(current_state, state, expected_state_size);
+   memset(&current_state[chip8_state_random_offset], 0, sizeof(uint32_t));
+   if (!check(!api->retro_unserialize(current_state, expected_state_size),
+              "zero random state rejection") ||
+       !check(api->retro_serialize(current_state, expected_state_size),
+              "serialize after rejected random state") ||
+       !check(memcmp(state, current_state, expected_state_size) == 0,
+              "rejected random state is transactional"))
       goto cleanup;
 
    observations.provide_right = true;
@@ -464,6 +732,12 @@ static bool run_session(const struct core_api *api)
    if (!check(api->retro_serialize_size() == 0, "state unavailable after unload") ||
        !check(api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM) == NULL,
               "system RAM unavailable after unload"))
+      goto cleanup;
+
+   api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+   if (!run_arithmetic_suite(api) || !run_timer_random_suite(api) ||
+       !check(api->retro_serialize_size() == 0,
+              "state unavailable after instruction suites"))
       goto cleanup;
 
    api->retro_deinit();

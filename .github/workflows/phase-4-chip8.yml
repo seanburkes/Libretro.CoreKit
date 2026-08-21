@@ -1,4 +1,4 @@
-name: Phase 4 CHIP-8 foundation
+name: Phase 4 CHIP-8
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  chip8-foundation:
+  chip8:
     name: Linux x64 CHIP-8 C host
     runs-on: ubuntu-22.04
     timeout-minutes: 15

@@ -11,16 +11,38 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     public const int MemorySize = 4_096;
     public const int ProgramStart = 0x200;
     public const int MaximumProgramSize = MemorySize - ProgramStart;
-    public const int StateSize = 60 + (Width * Height) + MemorySize;
+    public const int StateSize = 68 + (Width * Height) + MemorySize;
 
     private const int InstructionsPerFrame = 12;
     private const int AudioFramesPerVideoFrame = 800;
-    private const int RegisterOffset = 12;
-    private const int StackOffset = 28;
-    private const int DisplayOffset = 60;
+    private const int FontStart = 0x50;
+    private const int RegisterOffset = 20;
+    private const int StackOffset = 36;
+    private const int DisplayOffset = 68;
     private const int MemoryOffset = DisplayOffset + (Width * Height);
-    private const uint StateMagic = 0x31533843;
-    private const ushort StateVersion = 1;
+    private const uint InitialRandomState = 0xC0DEF00D;
+    private const uint StateMagic = 0x32533843;
+    private const ushort StateVersion = 2;
+
+    private static ReadOnlySpan<byte> FontData =>
+    [
+        0xF0, 0x90, 0x90, 0x90, 0xF0,
+        0x20, 0x60, 0x20, 0x20, 0x70,
+        0xF0, 0x10, 0xF0, 0x80, 0xF0,
+        0xF0, 0x10, 0xF0, 0x10, 0xF0,
+        0x90, 0x90, 0xF0, 0x10, 0x10,
+        0xF0, 0x80, 0xF0, 0x10, 0xF0,
+        0xF0, 0x80, 0xF0, 0x90, 0xF0,
+        0xF0, 0x10, 0x20, 0x40, 0x40,
+        0xF0, 0x90, 0xF0, 0x90, 0xF0,
+        0xF0, 0x90, 0xF0, 0x10, 0xF0,
+        0xF0, 0x90, 0xF0, 0x90, 0x90,
+        0xE0, 0x90, 0xE0, 0x90, 0xE0,
+        0xF0, 0x80, 0x80, 0x80, 0xF0,
+        0xE0, 0x90, 0x90, 0x90, 0xE0,
+        0xF0, 0x80, 0xF0, 0x80, 0xF0,
+        0xF0, 0x80, 0xF0, 0x80, 0x80,
+    ];
 
     private readonly byte[] _content = new byte[MaximumProgramSize];
     private readonly byte[] _memory = new byte[MemorySize];
@@ -34,13 +56,16 @@ internal sealed unsafe class Chip8Core : ILibretroCore
     private int _contentLength;
     private ushort _programCounter;
     private ushort _indexRegister;
+    private uint _randomState;
+    private byte _delayTimer;
+    private byte _soundTimer;
     private byte _stackPointer;
     private bool _halted;
     private RetroDevice _controllerDevice = RetroDevice.Joypad;
 
     public LibretroSystemMetadata SystemMetadata => new(
         "CoreKit CHIP-8",
-        "0.1.0-phase4",
+        "0.2.0-phase4",
         "ch8");
 
     public LibretroCallbackRequirements RequiredFrameCallbacks =>
@@ -116,6 +141,16 @@ internal sealed unsafe class Chip8Core : ILibretroCore
             _halted = !ExecuteInstruction();
         }
 
+        if (_delayTimer != 0)
+        {
+            _delayTimer--;
+        }
+
+        if (_soundTimer != 0)
+        {
+            _soundTimer--;
+        }
+
         for (var pixel = 0; pixel < _display.Length; pixel++)
         {
             _video[pixel] = _display[pixel] == 0 ? 0x00000000u : 0x00FFFFFFu;
@@ -138,8 +173,13 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         BinaryPrimitives.WriteUInt16LittleEndian(destination[4..], StateVersion);
         BinaryPrimitives.WriteUInt16LittleEndian(destination[6..], _programCounter);
         BinaryPrimitives.WriteUInt16LittleEndian(destination[8..], _indexRegister);
-        destination[10] = _stackPointer;
-        destination[11] = _halted ? (byte)1 : (byte)0;
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[10..], _randomState);
+        destination[14] = _delayTimer;
+        destination[15] = _soundTimer;
+        destination[16] = _stackPointer;
+        destination[17] = _halted ? (byte)1 : (byte)0;
+        destination[18] = 0;
+        destination[19] = 0;
         _registers.CopyTo(destination[RegisterOffset..]);
         for (var index = 0; index < _stack.Length; index++)
         {
@@ -164,11 +204,14 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
         var programCounter = BinaryPrimitives.ReadUInt16LittleEndian(source[6..]);
         var indexRegister = BinaryPrimitives.ReadUInt16LittleEndian(source[8..]);
-        var stackPointer = source[10];
-        var halted = source[11];
+        var randomState = BinaryPrimitives.ReadUInt32LittleEndian(source[10..]);
+        var stackPointer = source[16];
+        var halted = source[17];
         if ((programCounter & 1) != 0 || programCounter > MemorySize ||
             (programCounter > MemorySize - 2 && halted == 0) ||
-            indexRegister >= MemorySize || stackPointer > _stack.Length || halted > 1)
+            indexRegister >= MemorySize || randomState == 0 ||
+            stackPointer > _stack.Length || halted > 1 ||
+            source[18] != 0 || source[19] != 0)
         {
             return false;
         }
@@ -193,6 +236,9 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
         _programCounter = programCounter;
         _indexRegister = indexRegister;
+        _randomState = randomState;
+        _delayTimer = source[14];
+        _soundTimer = source[15];
         _stackPointer = stackPointer;
         _halted = halted != 0;
         source.Slice(RegisterOffset, _registers.Length).CopyTo(_registers);
@@ -233,6 +279,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         var opcode = (ushort)((_memory[_programCounter] << 8) | _memory[_programCounter + 1]);
         _programCounter += 2;
         var register = (opcode >> 8) & 0x0F;
+        var otherRegister = (opcode >> 4) & 0x0F;
         var value = (byte)opcode;
         var address = (ushort)(opcode & 0x0FFF);
 
@@ -275,19 +322,47 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 }
 
                 return true;
+            case 0x5000 when (opcode & 0x000F) == 0:
+                if (_registers[register] == _registers[otherRegister])
+                {
+                    _programCounter += 2;
+                }
+
+                return true;
             case 0x6000:
                 _registers[register] = value;
                 return true;
             case 0x7000:
                 _registers[register] += value;
                 return true;
+            case 0x8000:
+                return ExecuteArithmetic(register, otherRegister, opcode & 0x000F);
+            case 0x9000 when (opcode & 0x000F) == 0:
+                if (_registers[register] != _registers[otherRegister])
+                {
+                    _programCounter += 2;
+                }
+
+                return true;
             case 0xA000:
                 _indexRegister = address;
+                return true;
+            case 0xB000:
+                var jumpAddress = address + _registers[0];
+                if (jumpAddress > MemorySize)
+                {
+                    return false;
+                }
+
+                _programCounter = (ushort)jumpAddress;
+                return true;
+            case 0xC000:
+                _registers[register] = (byte)(NextRandomByte() & value);
                 return true;
             case 0xD000:
                 return DrawSprite(
                     _registers[register],
-                    _registers[(opcode >> 4) & 0x0F],
+                    _registers[otherRegister],
                     opcode & 0x000F);
             case 0xE000 when value == 0x9E:
                 if (IsKeyPressed(_registers[register]))
@@ -303,9 +378,134 @@ internal sealed unsafe class Chip8Core : ILibretroCore
                 }
 
                 return true;
+            case 0xF000 when value == 0x07:
+                _registers[register] = _delayTimer;
+                return true;
+            case 0xF000 when value == 0x0A:
+                if (!TryGetPressedKey(out var key))
+                {
+                    _programCounter -= 2;
+                    return true;
+                }
+
+                _registers[register] = key;
+                return true;
+            case 0xF000 when value == 0x15:
+                _delayTimer = _registers[register];
+                return true;
+            case 0xF000 when value == 0x18:
+                _soundTimer = _registers[register];
+                return true;
+            case 0xF000 when value == 0x1E:
+                var indexRegister = _indexRegister + _registers[register];
+                if (indexRegister >= MemorySize)
+                {
+                    return false;
+                }
+
+                _indexRegister = (ushort)indexRegister;
+                return true;
+            case 0xF000 when value == 0x29:
+                if (_registers[register] > 0x0F)
+                {
+                    return false;
+                }
+
+                _indexRegister = (ushort)(FontStart + (_registers[register] * 5));
+                return true;
+            case 0xF000 when value == 0x33:
+                if (_indexRegister > MemorySize - 3)
+                {
+                    return false;
+                }
+
+                var decimalValue = _registers[register];
+                _memory[_indexRegister] = (byte)(decimalValue / 100);
+                _memory[_indexRegister + 1] = (byte)((decimalValue / 10) % 10);
+                _memory[_indexRegister + 2] = (byte)(decimalValue % 10);
+                return true;
+            case 0xF000 when value == 0x55:
+                return StoreRegisters(register);
+            case 0xF000 when value == 0x65:
+                return LoadRegisters(register);
             default:
                 return false;
         }
+    }
+
+    private bool ExecuteArithmetic(int register, int otherRegister, int operation)
+    {
+        var left = _registers[register];
+        var right = _registers[otherRegister];
+        switch (operation)
+        {
+            case 0x0:
+                _registers[register] = right;
+                return true;
+            case 0x1:
+                _registers[register] = (byte)(left | right);
+                return true;
+            case 0x2:
+                _registers[register] = (byte)(left & right);
+                return true;
+            case 0x3:
+                _registers[register] = (byte)(left ^ right);
+                return true;
+            case 0x4:
+                var sum = left + right;
+                _registers[register] = (byte)sum;
+                _registers[0xF] = sum > byte.MaxValue ? (byte)1 : (byte)0;
+                return true;
+            case 0x5:
+                _registers[register] = (byte)(left - right);
+                _registers[0xF] = left >= right ? (byte)1 : (byte)0;
+                return true;
+            case 0x6:
+                _registers[register] = (byte)(left >> 1);
+                _registers[0xF] = (byte)(left & 1);
+                return true;
+            case 0x7:
+                _registers[register] = (byte)(right - left);
+                _registers[0xF] = right >= left ? (byte)1 : (byte)0;
+                return true;
+            case 0xE:
+                _registers[register] = (byte)(left << 1);
+                _registers[0xF] = (byte)(left >> 7);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private bool StoreRegisters(int lastRegister)
+    {
+        if (_indexRegister + lastRegister >= MemorySize)
+        {
+            return false;
+        }
+
+        _registers.AsSpan(0, lastRegister + 1).CopyTo(_memory.AsSpan(_indexRegister));
+        return true;
+    }
+
+    private bool LoadRegisters(int lastRegister)
+    {
+        if (_indexRegister + lastRegister >= MemorySize)
+        {
+            return false;
+        }
+
+        _memory.AsSpan(_indexRegister, lastRegister + 1)
+            .CopyTo(_registers.AsSpan(0, lastRegister + 1));
+        return true;
+    }
+
+    private byte NextRandomByte()
+    {
+        _randomState ^= _randomState << 13;
+        _randomState ^= _randomState >> 17;
+        _randomState ^= _randomState << 5;
+        return (byte)_randomState;
     }
 
     private bool DrawSprite(int originX, int originY, int height)
@@ -354,6 +554,21 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
     private bool IsKeyPressed(int key) => key < _keys.Length && _keys[key];
 
+    private bool TryGetPressedKey(out byte key)
+    {
+        for (byte candidate = 0; candidate < _keys.Length; candidate++)
+        {
+            if (_keys[candidate])
+            {
+                key = candidate;
+                return true;
+            }
+        }
+
+        key = 0;
+        return false;
+    }
+
     private static bool IsPressed(ushort input, RetroJoypadId id) =>
         (input & (1 << (int)id)) != 0;
 
@@ -366,6 +581,7 @@ internal sealed unsafe class Chip8Core : ILibretroCore
         Array.Clear(_keys);
         Array.Clear(_video);
         Array.Clear(_audio);
+        FontData.CopyTo(_memory.AsSpan(FontStart));
         if (_contentLength != 0)
         {
             _content.AsSpan(0, _contentLength).CopyTo(_memory.AsSpan(ProgramStart));
@@ -373,6 +589,9 @@ internal sealed unsafe class Chip8Core : ILibretroCore
 
         _programCounter = ProgramStart;
         _indexRegister = 0;
+        _randomState = InitialRandomState;
+        _delayTimer = 0;
+        _soundTimer = 0;
         _stackPointer = 0;
         _halted = false;
     }

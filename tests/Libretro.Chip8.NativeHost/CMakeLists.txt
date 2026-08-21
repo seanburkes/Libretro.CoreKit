@@ -42,8 +42,8 @@ if(DEFINED CORE_PATH)
 
   enable_testing()
   add_test(
-    NAME phase_4_chip8_foundation
+    NAME phase_4_chip8
     COMMAND libretro_chip8_native_host ${chip8_test_arguments}
   )
-  set_tests_properties(phase_4_chip8_foundation PROPERTIES TIMEOUT 300)
+  set_tests_properties(phase_4_chip8 PROPERTIES TIMEOUT 300)
 endif()

@@ -38,10 +38,11 @@ oracle proves runtime output changes, while the RetroArch gate proves persisted
 non-default settings through real frontend lifecycles.
 
 Phase 4 is underway. A separate NativeAOT CHIP-8 core now performs bounded
-in-memory `.ch8` content loading, deterministic subset execution, 64x32
-XRGB8888 rendering, RetroPad mapping, timed silent audio batches, reset, pinned
-system RAM, and transactional state loading. The remaining instruction set,
-timers, audible sound, and quirk options are deliberately still open.
+in-memory `.ch8` content loading, standard instruction execution under a fixed
+modern baseline, 60 Hz timers, deterministic random behavior, 64x32 XRGB8888
+rendering, RetroPad mapping, timed silent audio batches, reset, pinned system
+RAM, and transactional state loading. Audible sound, full keypad mapping, and
+quirk options are deliberately still open.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -73,7 +74,7 @@ controller configuration so the frontend exercises device-change forwarding.
 Its tone and color/monochrome palette options take effect during a loaded
 session without restarting the core.
 
-## Run the Linux CHIP-8 foundation gate
+## Run the Linux CHIP-8 gate
 
 ```sh
 ./eng/run-chip8.sh
@@ -81,9 +82,10 @@ session without restarting the core.
 
 This publishes `corekit_chip8_libretro.so` and runs its focused independent C
 host under ASan/UBSan. The host loads deterministic in-memory `.ch8` test
-content, verifies instruction execution and RetroPad-sensitive video, and
-round-trips the versioned state while checking stable CHIP-8 system RAM. Use
-`COREKIT_CHIP8_CYCLES=1000` for the full loader stress count.
+content, verifies arithmetic, memory, font, timer, key-wait, random, drawing,
+and RetroPad-sensitive behavior, and round-trips the versioned state while
+checking stable CHIP-8 system RAM. Use `COREKIT_CHIP8_CYCLES=1000` for the full
+loader stress count.
 
 ## Run the Linux RetroArch lifecycle gate
 
