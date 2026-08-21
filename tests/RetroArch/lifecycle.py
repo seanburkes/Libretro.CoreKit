@@ -5,9 +5,32 @@ import argparse
 import os
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
+
+
+RETRO_DEVICE_JOYPAD = 1
+RETROPAD_PORT = 55400
+KEYPAD_MAPPING = (
+    (0, 0x0),
+    (1, 0x1),
+    (2, 0xC),
+    (3, 0xD),
+    (4, 0x2),
+    (5, 0x8),
+    (6, 0x4),
+    (7, 0x6),
+    (8, 0x5),
+    (9, 0x3),
+    (10, 0x7),
+    (11, 0x9),
+    (12, 0xA),
+    (13, 0xB),
+    (14, 0xE),
+    (15, 0xF),
+)
 
 
 def send(sock, port, command):
@@ -93,6 +116,32 @@ def wait_for_logged(path, start, marker, label, timeout=5.0):
     raise RuntimeError(f"timed out waiting for {label}")
 
 
+def send_retropad(sock, button_id, pressed):
+    message = struct.pack(
+        "<iiiiH2x",
+        0,
+        RETRO_DEVICE_JOYPAD,
+        0,
+        button_id,
+        1 if pressed else 0,
+    )
+    sock.sendto(message, ("127.0.0.1", RETROPAD_PORT))
+
+
+def wait_for_core_ram(sock, port, address, expected, label, timeout=2.0):
+    command = f"READ_CORE_RAM {address:x} {len(expected)}"
+    expected_reply = " ".join(f"{value:02X}" for value in expected)
+    expected_reply = f"READ_CORE_RAM {address:x} {expected_reply}"
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        last = ask(sock, port, command, 0.5)
+        if last == expected_reply:
+            return
+        time.sleep(0.01)
+    raise RuntimeError(f"timed out waiting for {label}; last reply: {last!r}")
+
+
 def run_core(
     sock,
     port,
@@ -149,6 +198,19 @@ def exercise_chip8_content(sock, port, core, content):
     send(sock, port, "RESET")
     time.sleep(0.05)
     probe(sock, port, "CHIP-8 RESET")
+    for button_id, chip8_key in KEYPAD_MAPPING:
+        send_retropad(sock, button_id, True)
+        try:
+            wait_for_core_ram(
+                sock,
+                port,
+                0x300,
+                (0, 8, chip8_key),
+                f"RetroPad button {button_id} to CHIP-8 key {chip8_key:X}",
+            )
+        finally:
+            send_retropad(sock, button_id, False)
+            time.sleep(0.05)
     send(sock, port, "UNLOAD_CORE")
     wait_for(
         sock,
@@ -319,8 +381,8 @@ def main():
     with open(args.chip8_content, "wb") as content_file:
         content_file.write(
             bytes.fromhex(
-                "00e0 6003 f018 6000 6108 6206 e2a1 7004 a216 d015 1214 "
-                "f0909090f000"
+                "00e0 6003 f018 6000 6108 a216 d015 f20a a300 f255 120e "
+                "f0909090f0"
             )
         )
     log = open(args.log, "wb")
@@ -354,7 +416,7 @@ def main():
             "RetroArch CHIP-8 content load",
         )
         print(
-            "CHIP-8 content load, sound timer, reset, and unload: accepted",
+            "CHIP-8 content, sound timer, full keypad, reset, and unload: accepted",
             flush=True,
         )
 

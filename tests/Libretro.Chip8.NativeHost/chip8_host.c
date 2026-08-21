@@ -54,7 +54,7 @@ struct observations
    uint64_t last_video_hash;
    uint64_t last_audio_hash;
    uint64_t tone_audio_hash;
-   bool provide_right;
+   uint16_t input_mask;
    bool left_sprite;
    bool right_sprite;
    bool last_audio_silent;
@@ -63,6 +63,32 @@ struct observations
 };
 
 static struct observations observations;
+
+struct keypad_mapping
+{
+   unsigned retro_id;
+   uint8_t chip8_key;
+   const char *description;
+};
+
+static const struct keypad_mapping keypad_mappings[] = {
+   {RETRO_DEVICE_ID_JOYPAD_B, 0x0, "CHIP-8 key 0"},
+   {RETRO_DEVICE_ID_JOYPAD_Y, 0x1, "CHIP-8 key 1"},
+   {RETRO_DEVICE_ID_JOYPAD_SELECT, 0xC, "CHIP-8 key C"},
+   {RETRO_DEVICE_ID_JOYPAD_START, 0xD, "CHIP-8 key D"},
+   {RETRO_DEVICE_ID_JOYPAD_UP, 0x2, "CHIP-8 key 2"},
+   {RETRO_DEVICE_ID_JOYPAD_DOWN, 0x8, "CHIP-8 key 8"},
+   {RETRO_DEVICE_ID_JOYPAD_LEFT, 0x4, "CHIP-8 key 4"},
+   {RETRO_DEVICE_ID_JOYPAD_RIGHT, 0x6, "CHIP-8 key 6"},
+   {RETRO_DEVICE_ID_JOYPAD_A, 0x5, "CHIP-8 key 5"},
+   {RETRO_DEVICE_ID_JOYPAD_X, 0x3, "CHIP-8 key 3"},
+   {RETRO_DEVICE_ID_JOYPAD_L, 0x7, "CHIP-8 key 7"},
+   {RETRO_DEVICE_ID_JOYPAD_R, 0x9, "CHIP-8 key 9"},
+   {RETRO_DEVICE_ID_JOYPAD_L2, 0xA, "CHIP-8 key A"},
+   {RETRO_DEVICE_ID_JOYPAD_R2, 0xB, "CHIP-8 key B"},
+   {RETRO_DEVICE_ID_JOYPAD_L3, 0xE, "CHIP-8 key E"},
+   {RETRO_DEVICE_ID_JOYPAD_R3, 0xF, "CHIP-8 key F"},
+};
 
 #define CHIP8_OPCODE(value) (uint8_t)((value) >> 8), (uint8_t)(value)
 
@@ -170,6 +196,13 @@ static const uint8_t timer_random_content[] = {
    CHIP8_OPCODE(0x1214),
 };
 
+static const uint8_t keypad_content[] = {
+   CHIP8_OPCODE(0xF00A),
+   CHIP8_OPCODE(0xA300),
+   CHIP8_OPCODE(0xF055),
+   CHIP8_OPCODE(0x1200),
+};
+
 static bool check(bool condition, const char *message)
 {
    if (!condition)
@@ -207,16 +240,27 @@ static bool RETRO_CALLCONV environment_callback(unsigned command, void *data)
    if (command == RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS)
    {
       const struct retro_input_descriptor *descriptors = data;
-      if (descriptors == NULL || descriptors[0].description == NULL ||
-          descriptors[0].id != RETRO_DEVICE_ID_JOYPAD_UP ||
-          strcmp(descriptors[0].description, "CHIP-8 key 2") != 0 ||
-          descriptors[1].id != RETRO_DEVICE_ID_JOYPAD_DOWN ||
-          descriptors[2].id != RETRO_DEVICE_ID_JOYPAD_LEFT ||
-          descriptors[3].id != RETRO_DEVICE_ID_JOYPAD_RIGHT ||
-          descriptors[4].id != RETRO_DEVICE_ID_JOYPAD_A ||
-          descriptors[5].id != RETRO_DEVICE_ID_JOYPAD_B ||
-          descriptors[6].description != NULL)
+      size_t mapping_index;
+      if (descriptors == NULL)
          observations.callback_error = true;
+      else
+      {
+         for (mapping_index = 0;
+              mapping_index < sizeof(keypad_mappings) / sizeof(keypad_mappings[0]);
+              mapping_index++)
+         {
+            if (descriptors[mapping_index].port != 0 ||
+                descriptors[mapping_index].device != RETRO_DEVICE_JOYPAD ||
+                descriptors[mapping_index].index != 0 ||
+                descriptors[mapping_index].id != keypad_mappings[mapping_index].retro_id ||
+                descriptors[mapping_index].description == NULL ||
+                strcmp(descriptors[mapping_index].description,
+                       keypad_mappings[mapping_index].description) != 0)
+               observations.callback_error = true;
+         }
+         if (descriptors[mapping_index].description != NULL)
+            observations.callback_error = true;
+      }
       observations.input_descriptor_calls++;
       return true;
    }
@@ -356,10 +400,8 @@ static int16_t RETRO_CALLCONV input_state_callback(
 
    observations.input_state_calls++;
    if (id == RETRO_DEVICE_ID_JOYPAD_MASK)
-      return observations.provide_right
-         ? (int16_t)(1U << RETRO_DEVICE_ID_JOYPAD_RIGHT)
-         : 0;
-   return observations.provide_right && id == RETRO_DEVICE_ID_JOYPAD_RIGHT ? 1 : 0;
+      return (int16_t)observations.input_mask;
+   return id < 16 && (observations.input_mask & (uint16_t)(1U << id)) != 0 ? 1 : 0;
 }
 
 static bool assign_symbol(
@@ -509,7 +551,7 @@ static bool run_timer_random_suite(const struct core_api *api)
    uint64_t second_audio_hash;
    unsigned frame;
 
-   observations.provide_right = false;
+   observations.input_mask = 0;
    if (!check(load_test_content(
                  api,
                  timer_random_content,
@@ -538,7 +580,7 @@ static bool run_timer_random_suite(const struct core_api *api)
       return false;
    first_audio_hash = observations.last_audio_hash;
 
-   observations.provide_right = true;
+   observations.input_mask = (uint16_t)(1U << RETRO_DEVICE_ID_JOYPAD_RIGHT);
    api->retro_run();
    if (!check(memcmp(&system_ram[0x350], expected_output, sizeof(expected_output)) == 0,
               "key, timer, and deterministic random results") ||
@@ -571,7 +613,7 @@ static bool run_timer_random_suite(const struct core_api *api)
               "state restores deterministic audio batch"))
       return false;
 
-   observations.provide_right = false;
+   observations.input_mask = 0;
    api->retro_reset();
    api->retro_run();
    if (!check(api->retro_serialize(reset_state, sizeof(reset_state)),
@@ -594,6 +636,43 @@ static bool run_timer_random_suite(const struct core_api *api)
        !check(observations.last_audio_silent,
               "expired sound timer restores silent audio"))
       return false;
+
+   api->retro_unload_game();
+   return true;
+}
+
+static bool run_keypad_suite(const struct core_api *api)
+{
+   uint8_t *system_ram;
+   size_t mapping_index;
+
+   observations.input_mask = 0;
+   if (!check(load_test_content(
+                 api,
+                 keypad_content,
+                 sizeof(keypad_content),
+                 "/corekit/keypad.ch8"),
+              "keypad content load"))
+      return false;
+
+   system_ram = api->retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+   if (!check(system_ram != NULL, "keypad system RAM"))
+      return false;
+
+   for (mapping_index = 0;
+        mapping_index < sizeof(keypad_mappings) / sizeof(keypad_mappings[0]);
+        mapping_index++)
+   {
+      system_ram[0x300] = 0xFF;
+      observations.input_mask = (uint16_t)(1U << keypad_mappings[mapping_index].retro_id);
+      api->retro_run();
+      if (!check(system_ram[0x300] == keypad_mappings[mapping_index].chip8_key,
+                 keypad_mappings[mapping_index].description))
+         return false;
+
+      observations.input_mask = 0;
+      api->retro_run();
+   }
 
    api->retro_unload_game();
    return true;
@@ -622,7 +701,7 @@ static bool run_session(const struct core_api *api)
                  strcmp(system_info.library_name, "CoreKit CHIP-8") == 0,
               "library name") ||
        !check(system_info.library_version != NULL &&
-                 strcmp(system_info.library_version, "0.3.0-phase4") == 0,
+                 strcmp(system_info.library_version, "0.4.0-phase4") == 0,
               "library version") ||
        !check(system_info.valid_extensions != NULL &&
                  strcmp(system_info.valid_extensions, "ch8") == 0,
@@ -753,7 +832,7 @@ static bool run_session(const struct core_api *api)
               "rejected audio phase is transactional"))
       goto cleanup;
 
-   observations.provide_right = true;
+   observations.input_mask = (uint16_t)(1U << RETRO_DEVICE_ID_JOYPAD_RIGHT);
    api->retro_reset();
    api->retro_run();
    if (!check(observations.right_sprite && !observations.left_sprite,
@@ -764,7 +843,7 @@ static bool run_session(const struct core_api *api)
               "system RAM pointer survives reset"))
       goto cleanup;
 
-   observations.provide_right = false;
+   observations.input_mask = 0;
    if (!check(api->retro_unserialize(state, expected_state_size), "unserialize state"))
       goto cleanup;
    api->retro_run();
@@ -780,7 +859,7 @@ static bool run_session(const struct core_api *api)
               "reset restores deterministic execution"))
       goto cleanup;
 
-   observations.provide_right = true;
+   observations.input_mask = (uint16_t)(1U << RETRO_DEVICE_ID_JOYPAD_RIGHT);
    api->retro_set_controller_port_device(0, RETRO_DEVICE_NONE);
    api->retro_reset();
    api->retro_run();
@@ -803,6 +882,7 @@ static bool run_session(const struct core_api *api)
 
    api->retro_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
    if (!run_arithmetic_suite(api) || !run_timer_random_suite(api) ||
+       !run_keypad_suite(api) ||
        !check(api->retro_serialize_size() == 0,
               "state unavailable after instruction suites"))
       goto cleanup;
