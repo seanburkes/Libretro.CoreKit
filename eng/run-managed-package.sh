@@ -23,12 +23,15 @@ package_version="$(
 package="${output_dir}/Libretro.Core.${package_version}.nupkg"
 symbols="${output_dir}/Libretro.Core.${package_version}.snupkg"
 framework_packages="${work_root}/framework-packages"
+lock_file="${repo_root}/eng/managed-package.packages.lock.json"
 
 mkdir -p "${output_dir}"
 dotnet restore "${repo_root}/src/Libretro.Core/Libretro.Core.csproj" \
   --locked-mode \
   --packages "${framework_packages}" \
   -p:DisableImplicitLibraryPacksFolder=true \
+  -p:RestorePackagesWithLockFile=true \
+  -p:NuGetLockFilePath="${lock_file}" \
   --disable-build-servers
 dotnet pack "${repo_root}/src/Libretro.Core/Libretro.Core.csproj" \
   --configuration Release \
