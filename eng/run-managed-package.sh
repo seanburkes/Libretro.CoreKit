@@ -22,10 +22,13 @@ package_version="$(
 )"
 package="${output_dir}/Libretro.Core.${package_version}.nupkg"
 symbols="${output_dir}/Libretro.Core.${package_version}.snupkg"
+framework_packages="${work_root}/framework-packages"
 
 mkdir -p "${output_dir}"
 dotnet restore "${repo_root}/src/Libretro.Core/Libretro.Core.csproj" \
   --locked-mode \
+  --packages "${framework_packages}" \
+  -p:DisableImplicitLibraryPacksFolder=true \
   --disable-build-servers
 dotnet pack "${repo_root}/src/Libretro.Core/Libretro.Core.csproj" \
   --configuration Release \
