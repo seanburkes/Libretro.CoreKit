@@ -59,8 +59,10 @@ work; see [docs/future-craterboy.md](docs/future-craterboy.md).
 
 Phase 5 hardens the framework independently. Its first slice adds an executable
 compatibility policy for the .NET SDK feature band, canonical libretro header,
-and pinned RetroArch lifecycle baseline. Pull requests validate those pins and
-the managed ABI constants without network access.
+and pinned RetroArch lifecycle baseline. Its second slice produces deterministic
+Linux x64 release bundles for the probe and CHIP-8 cores with canonical `.info`
+metadata, project/libretro/.NET license material, complete archive checksums,
+and source/toolchain/build provenance. Pull requests validate both contracts.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -108,6 +110,21 @@ deterministic audio phase and interpreter configuration while checking stable
 CHIP-8 system RAM. It also exercises the default and alternative behavior of
 all six core options. Use
 `COREKIT_CHIP8_CYCLES=1000` for the full loader stress count.
+
+## Build the Linux x64 release bundles
+
+```sh
+./eng/run-release.sh
+```
+
+This publishes stripped probe and CHIP-8 NativeAOT cores with separate native
+debug symbols, creates one release ZIP per core under
+`artifacts/release/linux-x64`, verifies each provenance manifest and archive
+checksum, executes both stripped cores through their independent C hosts, and
+repeats packaging to require byte-identical outputs. A clean source tree is
+required; `COREKIT_RELEASE_ALLOW_DIRTY=1` exists only for local inspection and
+records that state in the manifest. See
+[docs/release-artifacts.md](docs/release-artifacts.md) for the bundle contract.
 
 ## Run the Linux RetroArch lifecycle gate
 
