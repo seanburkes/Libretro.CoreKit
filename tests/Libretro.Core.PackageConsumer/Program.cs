@@ -11,7 +11,7 @@ if (!LibretroAbi.IsSupportedLayout() ||
     host.HasFailed ||
     assembly.GetName().Version != new Version(0, 1, 0, 0) ||
     informationalVersion is null ||
-    !informationalVersion.StartsWith("0.1.0-preview.1", StringComparison.Ordinal))
+    !informationalVersion.StartsWith("0.1.0-preview.2", StringComparison.Ordinal))
 {
     return 1;
 }

@@ -20,7 +20,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>libretro;retroarch;emulation;nativeaot</PackageTags>
-    <PackageReleaseNotes>Initial preview package for the reusable managed host and ABI layer.</PackageReleaseNotes>
+    <PackageReleaseNotes>Adds Linux native logging companion sources and package-backed NativeAOT validation.</PackageReleaseNotes>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -31,6 +31,12 @@
     <AdditionalFiles Include="PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
     <None Update="PACKAGE.md" Pack="true" PackagePath="README.md" />
+    <None Update="Native/libretro_log_shim.c"
+          Pack="true"
+          PackagePath="native/libretro_log_shim.c" />
+    <None Include="../../eng/libretro/libretro.h"
+          Pack="true"
+          PackagePath="native/libretro.h" />
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
                       Version="5.6.0"
                       PrivateAssets="all" />

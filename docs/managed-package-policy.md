@@ -1,7 +1,7 @@
 # Managed Package and Compatibility Policy
 
-`Libretro.Core` is the reusable managed framework package. The initial package
-version is `0.1.0-preview.1`, targets `net10.0`, and has no runtime package
+`Libretro.Core` is the reusable managed framework package. The current package
+version is `0.1.0-preview.2`, targets `net10.0`, and has no runtime package
 dependencies. It is a preview artifact, not a stable API or an automatic claim
 of RetroArch support on every platform where a consumer can compile it.
 
@@ -60,11 +60,21 @@ Run from a clean checkout:
 ./eng/run-managed-package.sh
 ```
 
+The complete gate runs on Linux x64 and requires the .NET NativeAOT
+prerequisites, Clang, CMake, and a C11 compiler.
+
 For local development only, set
 `COREKIT_MANAGED_PACKAGE_ALLOW_DIRTY=1`. The gate performs a locked restore,
 packs the Release assembly and portable symbols, verifies metadata and exact
 package assets, proves that no runtime package dependency escaped into the
-manifest, and restores/builds/runs the independent package consumer.
+manifest, and restores/builds/runs the independent managed package consumer.
 
-The package contains only `Libretro.Core`; concrete NativeAOT core publishing
-assemblies and their `retro_*` entry points remain owned by each emulator core.
+The same gate then restores a separate NativeAOT publishing project from the
+produced package, compiles the packaged logging shim, publishes a Linux x64
+shared core, and executes its full callback and logging lifecycle through the
+independent C host. The test project owns its concrete `retro_*` exports and
+platform linker settings, matching the boundary required of an external core.
+
+The package contains the reusable `Libretro.Core` assembly and native logging
+companion sources; concrete NativeAOT core publishing assemblies and their
+`retro_*` entry points remain owned by each emulator core.
