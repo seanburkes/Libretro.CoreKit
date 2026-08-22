@@ -1,8 +1,9 @@
 # Phase 5: Framework Hardening
 
-**Status:** In progress. Compatibility pins are executable policy, Linux x64
+**Status:** Complete. Compatibility pins are executable policy, Linux x64
 release bundles carry deterministic provenance and required companion material,
-and their glibc 2.34 compatibility floor is enforced. Craterboy integration is
+their glibc 2.34 compatibility floor is enforced, and the reusable managed API
+has a preview package and compatibility contract. Craterboy integration is
 separate, deferred future work and is not part of this phase.
 
 ## Slice 1: Compatibility pin policy
@@ -67,11 +68,31 @@ required by its core artifact. The support boundary and update procedure are
 documented in
 [`docs/linux-glibc-baseline.md`](docs/linux-glibc-baseline.md).
 
-## Remaining hardening work
+## Slice 4: Managed package contract
 
-- Define public package versioning and compatibility guarantees for the
-  reusable managed API.
-- Keep the probe and CHIP-8 cores as regression consumers for framework changes.
+`Libretro.Core` is packable as `0.1.0-preview.1` for `net10.0`, with complete
+NuGet metadata, a package README, portable symbols, no runtime package
+dependencies, and a locked analyzer dependency graph. CI builds and uploads the
+package as evidence but does not publish it externally.
 
-The next slice should define managed package versioning and compatibility
-guarantees. It does not need another emulator to justify itself.
+The public API analyzer records the complete current framework surface and
+fails undeclared additions, removals, and signature changes. All entries remain
+unshipped until an explicitly authorized first publication. SDK package
+validation runs during pack; a published-package baseline is intentionally
+deferred until such a package actually exists rather than citing an imaginary
+release.
+
+`eng/run-managed-package.sh` verifies package metadata and exact assets, then
+restores, builds, and runs a separate consumer using only the produced package
+directory. The version rules, promotion procedure, and compatibility guarantees
+are documented in
+[`docs/managed-package-policy.md`](docs/managed-package-policy.md).
+
+## Ongoing regression responsibility
+
+The probe and CHIP-8 cores remain regression consumers for framework changes.
+Their independent C hosts, Linux x64 RetroArch lifecycle, release bundle, glibc
+floor, and managed package jobs remain required gates.
+
+Phase 5 is complete. The next planned implementation phase is Windows x64
+frontend lifecycle support; Android follows it in platform priority.

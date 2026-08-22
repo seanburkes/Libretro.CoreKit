@@ -1,0 +1,343 @@
+#nullable enable
+const Libretro.Core.Abi.LibretroConstants.ApiVersion = 1 -> uint
+const Libretro.Core.Abi.LibretroConstants.CoreOptionValuesMaximum = 128 -> int
+const Libretro.Core.Abi.LibretroConstants.EnvironmentExperimental = 65536 -> uint
+Libretro.Core.Abi.LibretroAbi
+Libretro.Core.Abi.LibretroConstants
+Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.Audio = 2 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.FastSaveStates = 4 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.HardDisableAudio = 8 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.None = 0 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.Unknown = 2147483647 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroAudioVideoEnableFlags.Video = 1 -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Abi.RetroControllerDescription
+Libretro.Core.Abi.RetroControllerDescription.Description -> byte*
+Libretro.Core.Abi.RetroControllerDescription.Id -> uint
+Libretro.Core.Abi.RetroControllerDescription.RetroControllerDescription() -> void
+Libretro.Core.Abi.RetroControllerInfo
+Libretro.Core.Abi.RetroControllerInfo.NumTypes -> uint
+Libretro.Core.Abi.RetroControllerInfo.RetroControllerInfo() -> void
+Libretro.Core.Abi.RetroControllerInfo.Types -> Libretro.Core.Abi.RetroControllerDescription*
+Libretro.Core.Abi.RetroCoreOptionsV2
+Libretro.Core.Abi.RetroCoreOptionsV2.Categories -> Libretro.Core.Abi.RetroCoreOptionV2Category*
+Libretro.Core.Abi.RetroCoreOptionsV2.Definitions -> Libretro.Core.Abi.RetroCoreOptionV2Definition*
+Libretro.Core.Abi.RetroCoreOptionsV2.RetroCoreOptionsV2() -> void
+Libretro.Core.Abi.RetroCoreOptionV2Category
+Libretro.Core.Abi.RetroCoreOptionV2Category.Description -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Category.Information -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Category.Key -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Category.RetroCoreOptionV2Category() -> void
+Libretro.Core.Abi.RetroCoreOptionV2Definition
+Libretro.Core.Abi.RetroCoreOptionV2Definition.CategorizedDescription -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.CategorizedInformation -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.CategoryKey -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.DefaultValue -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.Description -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.Information -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.Key -> byte*
+Libretro.Core.Abi.RetroCoreOptionV2Definition.RetroCoreOptionV2Definition() -> void
+Libretro.Core.Abi.RetroCoreOptionV2Definition.Values -> Libretro.Core.Abi.RetroCoreOptionValues
+Libretro.Core.Abi.RetroCoreOptionValue
+Libretro.Core.Abi.RetroCoreOptionValue.Label -> byte*
+Libretro.Core.Abi.RetroCoreOptionValue.RetroCoreOptionValue() -> void
+Libretro.Core.Abi.RetroCoreOptionValue.Value -> byte*
+Libretro.Core.Abi.RetroCoreOptionValues
+Libretro.Core.Abi.RetroCoreOptionValues.RetroCoreOptionValues() -> void
+Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.Analog = 5 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.Joypad = 1 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.Keyboard = 3 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.LightGun = 4 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.Mouse = 2 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.None = 0 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroDevice.Pointer = 6 -> Libretro.Core.Abi.RetroDevice
+Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetAudioVideoEnable = 65583 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetContentDirectory = 30 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetCoreAssetsDirectory = 30 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetFastForwarding = 65585 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetInputBitmasks = 65587 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetLanguage = 39 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetLogInterface = 27 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetMessageInterfaceVersion = 59 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetSaveDirectory = 31 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetSystemDirectory = 9 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetVariable = 15 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.GetVariableUpdate = 17 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetControllerInfo = 35 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetCoreOptionsV2 = 67 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetInputDescriptors = 11 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetMessage = 6 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetMessageExtended = 60 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetPixelFormat = 10 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroEnvironmentCommand.SetSupportNoGame = 18 -> Libretro.Core.Abi.RetroEnvironmentCommand
+Libretro.Core.Abi.RetroFrontendCallbacks
+Libretro.Core.Abi.RetroFrontendCallbacks.AudioSample -> delegate* unmanaged[Cdecl]<short, short, void>
+Libretro.Core.Abi.RetroFrontendCallbacks.AudioSampleBatch -> delegate* unmanaged[Cdecl]<short*, nuint, nuint>
+Libretro.Core.Abi.RetroFrontendCallbacks.Environment -> delegate* unmanaged[Cdecl]<uint, void*, byte>
+Libretro.Core.Abi.RetroFrontendCallbacks.InputPoll -> delegate* unmanaged[Cdecl]<void>
+Libretro.Core.Abi.RetroFrontendCallbacks.InputState -> delegate* unmanaged[Cdecl]<uint, uint, uint, uint, short>
+Libretro.Core.Abi.RetroFrontendCallbacks.RetroFrontendCallbacks() -> void
+Libretro.Core.Abi.RetroFrontendCallbacks.VideoRefresh -> delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void>
+Libretro.Core.Abi.RetroGameGeometry
+Libretro.Core.Abi.RetroGameGeometry.AspectRatio -> float
+Libretro.Core.Abi.RetroGameGeometry.BaseHeight -> uint
+Libretro.Core.Abi.RetroGameGeometry.BaseWidth -> uint
+Libretro.Core.Abi.RetroGameGeometry.MaxHeight -> uint
+Libretro.Core.Abi.RetroGameGeometry.MaxWidth -> uint
+Libretro.Core.Abi.RetroGameGeometry.RetroGameGeometry() -> void
+Libretro.Core.Abi.RetroGameInfo
+Libretro.Core.Abi.RetroGameInfo.Data -> void*
+Libretro.Core.Abi.RetroGameInfo.Metadata -> byte*
+Libretro.Core.Abi.RetroGameInfo.Path -> byte*
+Libretro.Core.Abi.RetroGameInfo.RetroGameInfo() -> void
+Libretro.Core.Abi.RetroGameInfo.Size -> nuint
+Libretro.Core.Abi.RetroInputDescriptor
+Libretro.Core.Abi.RetroInputDescriptor.Description -> byte*
+Libretro.Core.Abi.RetroInputDescriptor.Device -> uint
+Libretro.Core.Abi.RetroInputDescriptor.Id -> uint
+Libretro.Core.Abi.RetroInputDescriptor.Index -> uint
+Libretro.Core.Abi.RetroInputDescriptor.Port -> uint
+Libretro.Core.Abi.RetroInputDescriptor.RetroInputDescriptor() -> void
+Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.A = 8 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.B = 0 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Down = 5 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.L = 10 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.L2 = 12 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.L3 = 14 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Left = 6 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Mask = 256 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.R = 11 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.R2 = 13 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.R3 = 15 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Right = 7 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Select = 2 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Start = 3 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Up = 4 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.X = 9 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroJoypadId.Y = 1 -> Libretro.Core.Abi.RetroJoypadId
+Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Arabic = 16 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Asturian = 22 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Belarusian = 32 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.BritishEnglish = 30 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Catalan = 29 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.CatalanValencia = 28 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.ChineseSimplified = 12 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.ChineseTraditional = 11 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Czech = 27 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Dutch = 6 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.English = 0 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Esperanto = 13 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Finnish = 23 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.French = 2 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Galician = 33 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.German = 4 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Greek = 17 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Hebrew = 21 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Hungarian = 31 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Indonesian = 24 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Irish = 35 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Italian = 5 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Japanese = 1 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Korean = 10 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Last = 37 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Norwegian = 34 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Persian = 20 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Polish = 14 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.PortugueseBrazil = 7 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.PortuguesePortugal = 8 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Russian = 9 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Slovak = 19 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Spanish = 3 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Swedish = 25 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Thai = 36 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Turkish = 18 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Ukrainian = 26 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Unknown = 2147483647 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLanguage.Vietnamese = 15 -> Libretro.Core.Abi.RetroLanguage
+Libretro.Core.Abi.RetroLogCallback
+Libretro.Core.Abi.RetroLogCallback.Log -> void*
+Libretro.Core.Abi.RetroLogCallback.RetroLogCallback() -> void
+Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroLogLevel.Debug = 0 -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroLogLevel.Error = 3 -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroLogLevel.Info = 1 -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroLogLevel.Unknown = 2147483647 -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroLogLevel.Warning = 2 -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMemory.Rom = 4 -> Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMemory.Rtc = 1 -> Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMemory.SaveRam = 0 -> Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMemory.SystemRam = 2 -> Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMemory.VideoRam = 3 -> Libretro.Core.Abi.RetroMemory
+Libretro.Core.Abi.RetroMessage
+Libretro.Core.Abi.RetroMessage.Frames -> uint
+Libretro.Core.Abi.RetroMessage.RetroMessage() -> void
+Libretro.Core.Abi.RetroMessage.Text -> byte*
+Libretro.Core.Abi.RetroMessageExtended
+Libretro.Core.Abi.RetroMessageExtended.DurationMilliseconds -> uint
+Libretro.Core.Abi.RetroMessageExtended.Level -> Libretro.Core.Abi.RetroLogLevel
+Libretro.Core.Abi.RetroMessageExtended.Priority -> uint
+Libretro.Core.Abi.RetroMessageExtended.Progress -> sbyte
+Libretro.Core.Abi.RetroMessageExtended.RetroMessageExtended() -> void
+Libretro.Core.Abi.RetroMessageExtended.Target -> Libretro.Core.Abi.RetroMessageTarget
+Libretro.Core.Abi.RetroMessageExtended.Text -> byte*
+Libretro.Core.Abi.RetroMessageExtended.Type -> Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroMessageTarget
+Libretro.Core.Abi.RetroMessageTarget.All = 0 -> Libretro.Core.Abi.RetroMessageTarget
+Libretro.Core.Abi.RetroMessageTarget.Log = 2 -> Libretro.Core.Abi.RetroMessageTarget
+Libretro.Core.Abi.RetroMessageTarget.OnScreenDisplay = 1 -> Libretro.Core.Abi.RetroMessageTarget
+Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroMessageType.Notification = 0 -> Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroMessageType.NotificationAlternate = 1 -> Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroMessageType.Progress = 3 -> Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroMessageType.Status = 2 -> Libretro.Core.Abi.RetroMessageType
+Libretro.Core.Abi.RetroPixelFormat
+Libretro.Core.Abi.RetroPixelFormat.Rgb565 = 2 -> Libretro.Core.Abi.RetroPixelFormat
+Libretro.Core.Abi.RetroPixelFormat.Unknown = 2147483647 -> Libretro.Core.Abi.RetroPixelFormat
+Libretro.Core.Abi.RetroPixelFormat.Xrgb8888 = 1 -> Libretro.Core.Abi.RetroPixelFormat
+Libretro.Core.Abi.RetroPixelFormat.ZeroRgb1555 = 0 -> Libretro.Core.Abi.RetroPixelFormat
+Libretro.Core.Abi.RetroRegion
+Libretro.Core.Abi.RetroRegion.Ntsc = 0 -> Libretro.Core.Abi.RetroRegion
+Libretro.Core.Abi.RetroRegion.Pal = 1 -> Libretro.Core.Abi.RetroRegion
+Libretro.Core.Abi.RetroSystemAvInfo
+Libretro.Core.Abi.RetroSystemAvInfo.Geometry -> Libretro.Core.Abi.RetroGameGeometry
+Libretro.Core.Abi.RetroSystemAvInfo.RetroSystemAvInfo() -> void
+Libretro.Core.Abi.RetroSystemAvInfo.Timing -> Libretro.Core.Abi.RetroSystemTiming
+Libretro.Core.Abi.RetroSystemInfo
+Libretro.Core.Abi.RetroSystemInfo.BlockExtract -> byte
+Libretro.Core.Abi.RetroSystemInfo.LibraryName -> byte*
+Libretro.Core.Abi.RetroSystemInfo.LibraryVersion -> byte*
+Libretro.Core.Abi.RetroSystemInfo.NeedFullPath -> byte
+Libretro.Core.Abi.RetroSystemInfo.RetroSystemInfo() -> void
+Libretro.Core.Abi.RetroSystemInfo.ValidExtensions -> byte*
+Libretro.Core.Abi.RetroSystemTiming
+Libretro.Core.Abi.RetroSystemTiming.FramesPerSecond -> double
+Libretro.Core.Abi.RetroSystemTiming.RetroSystemTiming() -> void
+Libretro.Core.Abi.RetroSystemTiming.SampleRate -> double
+Libretro.Core.Abi.RetroVariable
+Libretro.Core.Abi.RetroVariable.Key -> byte*
+Libretro.Core.Abi.RetroVariable.RetroVariable() -> void
+Libretro.Core.Abi.RetroVariable.Value -> byte*
+Libretro.Core.Environment.RetroEnvironment
+Libretro.Core.Environment.RetroEnvironment.GetAudioVideoEnable(out Libretro.Core.Abi.RetroAudioVideoEnableFlags flags) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetContentDirectory(out byte* path) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetCoreAssetsDirectory(out byte* path) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetFastForwarding(out bool fastForwarding) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetLanguage(out Libretro.Core.Abi.RetroLanguage language) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetLogInterface(out Libretro.Core.Logging.RetroLogger logger) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetMessageInterfaceVersion(out uint version) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetSaveDirectory(out byte* path) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetSystemDirectory(out byte* path) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetVariable(byte* key, out byte* value) -> bool
+Libretro.Core.Environment.RetroEnvironment.GetVariableUpdate(out bool updated) -> bool
+Libretro.Core.Environment.RetroEnvironment.IsAvailable.get -> bool
+Libretro.Core.Environment.RetroEnvironment.RetroEnvironment() -> void
+Libretro.Core.Environment.RetroEnvironment.RetroEnvironment(delegate* unmanaged[Cdecl]<uint, void*, byte> callback) -> void
+Libretro.Core.Environment.RetroEnvironment.SetControllerInfo(Libretro.Core.Abi.RetroControllerInfo* controllers) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetCoreOptionsV2(Libretro.Core.Abi.RetroCoreOptionsV2* options) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetInputDescriptors(Libretro.Core.Abi.RetroInputDescriptor* descriptors) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetMessage(Libretro.Core.Abi.RetroMessage* message) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetMessageExtended(Libretro.Core.Abi.RetroMessageExtended* message) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetPixelFormat(Libretro.Core.Abi.RetroPixelFormat format) -> bool
+Libretro.Core.Environment.RetroEnvironment.SetSupportNoGame(bool supported) -> bool
+Libretro.Core.Environment.RetroEnvironment.SupportsInputBitmasks() -> bool
+Libretro.Core.Hosting.ILibretroCore
+Libretro.Core.Hosting.ILibretroCore.ConfigureEnvironment(Libretro.Core.Hosting.LibretroEnvironmentContext context) -> void
+Libretro.Core.Hosting.ILibretroCore.Deinitialize() -> void
+Libretro.Core.Hosting.ILibretroCore.GetMemory(Libretro.Core.Abi.RetroMemory region) -> System.Memory<byte>
+Libretro.Core.Hosting.ILibretroCore.GetSystemAvInfo(out Libretro.Core.Abi.RetroSystemAvInfo info) -> void
+Libretro.Core.Hosting.ILibretroCore.Initialize(Libretro.Core.Hosting.LibretroInitializationContext context) -> void
+Libretro.Core.Hosting.ILibretroCore.LoadContent(Libretro.Core.Hosting.LibretroLoadContext context) -> bool
+Libretro.Core.Hosting.ILibretroCore.RequiredFrameCallbacks.get -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.ILibretroCore.Reset() -> void
+Libretro.Core.Hosting.ILibretroCore.RunFrame(ref Libretro.Core.Hosting.LibretroFrameContext context) -> void
+Libretro.Core.Hosting.ILibretroCore.Serialize(System.Span<byte> destination) -> bool
+Libretro.Core.Hosting.ILibretroCore.SerializedStateSize.get -> int
+Libretro.Core.Hosting.ILibretroCore.SetControllerPortDevice(uint port, uint device) -> void
+Libretro.Core.Hosting.ILibretroCore.SystemMetadata.get -> Libretro.Core.Hosting.LibretroSystemMetadata
+Libretro.Core.Hosting.ILibretroCore.UnloadContent() -> void
+Libretro.Core.Hosting.ILibretroCore.Unserialize(System.ReadOnlySpan<byte> source) -> bool
+Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.Audio = 4 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.Environment = 1 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.InputPoll = 8 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.InputState = 16 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.None = 0 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.SoftwareCore = Libretro.Core.Hosting.LibretroCallbackRequirements.Environment | Libretro.Core.Hosting.LibretroCallbackRequirements.Video | Libretro.Core.Hosting.LibretroCallbackRequirements.Audio | Libretro.Core.Hosting.LibretroCallbackRequirements.InputPoll | Libretro.Core.Hosting.LibretroCallbackRequirements.InputState -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroCallbackRequirements.Video = 2 -> Libretro.Core.Hosting.LibretroCallbackRequirements
+Libretro.Core.Hosting.LibretroContent
+Libretro.Core.Hosting.LibretroContent.Data.get -> System.ReadOnlySpan<byte>
+Libretro.Core.Hosting.LibretroContent.IsContentless.get -> bool
+Libretro.Core.Hosting.LibretroContent.LibretroContent() -> void
+Libretro.Core.Hosting.LibretroContent.MetadataUtf8.get -> System.ReadOnlySpan<byte>
+Libretro.Core.Hosting.LibretroContent.PathUtf8.get -> System.ReadOnlySpan<byte>
+Libretro.Core.Hosting.LibretroEnvironmentContext
+Libretro.Core.Hosting.LibretroEnvironmentContext.Environment.get -> Libretro.Core.Environment.RetroEnvironment
+Libretro.Core.Hosting.LibretroEnvironmentContext.LibretroEnvironmentContext() -> void
+Libretro.Core.Hosting.LibretroEnvironmentContext.Logger.get -> Libretro.Core.Logging.RetroLogger
+Libretro.Core.Hosting.LibretroFrameContext
+Libretro.Core.Hosting.LibretroFrameContext.AudioVideoEnable.get -> Libretro.Core.Abi.RetroAudioVideoEnableFlags
+Libretro.Core.Hosting.LibretroFrameContext.CoreOptionsUpdated.get -> bool
+Libretro.Core.Hosting.LibretroFrameContext.Environment.get -> Libretro.Core.Environment.RetroEnvironment
+Libretro.Core.Hosting.LibretroFrameContext.FastForwarding.get -> bool
+Libretro.Core.Hosting.LibretroFrameContext.LibretroFrameContext() -> void
+Libretro.Core.Hosting.LibretroFrameContext.Logger.get -> Libretro.Core.Logging.RetroLogger
+Libretro.Core.Hosting.LibretroFrameContext.PollRetroPad(uint port = 0) -> ushort
+Libretro.Core.Hosting.LibretroFrameContext.SubmitAudio(System.ReadOnlySpan<short> interleavedStereo) -> nuint
+Libretro.Core.Hosting.LibretroFrameContext.SubmitVideo(System.ReadOnlySpan<uint> xrgb8888, uint width, uint height, nuint pitchBytes) -> bool
+Libretro.Core.Hosting.LibretroHost<TCore>
+Libretro.Core.Hosting.LibretroHost<TCore>.Deinitialize() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.GetMemoryData(uint id) -> void*
+Libretro.Core.Hosting.LibretroHost<TCore>.GetMemorySize(uint id) -> nuint
+Libretro.Core.Hosting.LibretroHost<TCore>.GetSystemAvInfo(Libretro.Core.Abi.RetroSystemAvInfo* info) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.GetSystemInfo(Libretro.Core.Abi.RetroSystemInfo* info) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.HasFailed.get -> bool
+Libretro.Core.Hosting.LibretroHost<TCore>.Initialize() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.LibretroHost(TCore! core) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.LoadGame(Libretro.Core.Abi.RetroGameInfo* game) -> byte
+Libretro.Core.Hosting.LibretroHost<TCore>.RecordFailure() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.Reset() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.Run() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.Serialize(void* data, nuint size) -> byte
+Libretro.Core.Hosting.LibretroHost<TCore>.SerializeSize() -> nuint
+Libretro.Core.Hosting.LibretroHost<TCore>.SetAudioSample(delegate* unmanaged[Cdecl]<short, short, void> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetAudioSampleBatch(delegate* unmanaged[Cdecl]<short*, nuint, nuint> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetControllerPortDevice(uint port, uint device) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetEnvironment(delegate* unmanaged[Cdecl]<uint, void*, byte> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetInputPoll(delegate* unmanaged[Cdecl]<void> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetInputState(delegate* unmanaged[Cdecl]<uint, uint, uint, uint, short> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.SetVideoRefresh(delegate* unmanaged[Cdecl]<void*, uint, uint, nuint, void> callback) -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.State.get -> Libretro.Core.Hosting.LibretroHostState
+Libretro.Core.Hosting.LibretroHost<TCore>.UnloadGame() -> void
+Libretro.Core.Hosting.LibretroHost<TCore>.Unserialize(void* data, nuint size) -> byte
+Libretro.Core.Hosting.LibretroHostState
+Libretro.Core.Hosting.LibretroHostState.ContentLoaded = 2 -> Libretro.Core.Hosting.LibretroHostState
+Libretro.Core.Hosting.LibretroHostState.Initialized = 1 -> Libretro.Core.Hosting.LibretroHostState
+Libretro.Core.Hosting.LibretroHostState.Uninitialized = 0 -> Libretro.Core.Hosting.LibretroHostState
+Libretro.Core.Hosting.LibretroInitializationContext
+Libretro.Core.Hosting.LibretroInitializationContext.Environment.get -> Libretro.Core.Environment.RetroEnvironment
+Libretro.Core.Hosting.LibretroInitializationContext.LibretroInitializationContext() -> void
+Libretro.Core.Hosting.LibretroInitializationContext.Logger.get -> Libretro.Core.Logging.RetroLogger
+Libretro.Core.Hosting.LibretroInitializationContext.SupportsInputBitmasks.get -> bool
+Libretro.Core.Hosting.LibretroLoadContext
+Libretro.Core.Hosting.LibretroLoadContext.Content.get -> Libretro.Core.Hosting.LibretroContent
+Libretro.Core.Hosting.LibretroLoadContext.Environment.get -> Libretro.Core.Environment.RetroEnvironment
+Libretro.Core.Hosting.LibretroLoadContext.LibretroLoadContext() -> void
+Libretro.Core.Hosting.LibretroLoadContext.Logger.get -> Libretro.Core.Logging.RetroLogger
+Libretro.Core.Hosting.LibretroSystemMetadata
+Libretro.Core.Hosting.LibretroSystemMetadata.BlockExtract.get -> bool
+Libretro.Core.Hosting.LibretroSystemMetadata.LibraryName.get -> string!
+Libretro.Core.Hosting.LibretroSystemMetadata.LibraryVersion.get -> string!
+Libretro.Core.Hosting.LibretroSystemMetadata.LibretroSystemMetadata() -> void
+Libretro.Core.Hosting.LibretroSystemMetadata.LibretroSystemMetadata(string! libraryName, string! libraryVersion, string! validExtensions = "", bool needFullPath = false, bool blockExtract = false) -> void
+Libretro.Core.Hosting.LibretroSystemMetadata.NeedFullPath.get -> bool
+Libretro.Core.Hosting.LibretroSystemMetadata.ValidExtensions.get -> string!
+Libretro.Core.Logging.RetroLogger
+Libretro.Core.Logging.RetroLogger.IsAvailable.get -> bool
+Libretro.Core.Logging.RetroLogger.RetroLogger() -> void
+Libretro.Core.Logging.RetroLogger.Write(Libretro.Core.Abi.RetroLogLevel level, System.ReadOnlySpan<byte> nullTerminatedUtf8) -> bool
+static Libretro.Core.Abi.LibretroAbi.IsSupportedLayout() -> bool

@@ -342,9 +342,8 @@ anticipated Craterboy requirements until a second implementation needs them.
 
 ## Phase 5: Framework Hardening
 
-**Status:** In progress. See [PHASE-5.md](PHASE-5.md) for the implemented
-compatibility, release-provenance, and glibc-floor gates plus the remaining
-release-hardening slices.
+**Status:** Complete. See [PHASE-5.md](PHASE-5.md) for the compatibility,
+release-provenance, glibc-floor, and managed-package gates.
 
 - Enforce the .NET SDK, canonical header, and RetroArch pin relationships in a
   network-free pull-request check. **Complete.**
@@ -354,7 +353,8 @@ release-hardening slices.
   manifests. **Complete for Linux x64.**
 - Establish an intentional minimum Linux glibc baseline. **Complete at glibc
   2.34 for Linux x64.**
-- Define public package versioning and compatibility guarantees.
+- Define public package versioning and compatibility guarantees. **Complete for
+  the `0.1.0-preview.1` managed package line.**
 
 ## Future: Craterboy Libretro Adapter
 
@@ -530,12 +530,11 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Define managed package versioning and compatibility guarantees.
-2. Maintain the reusable host and both existing cores against their native-host
+1. Maintain the reusable host and both existing cores against their native-host
    and RetroArch gates.
-3. After Linux hardening, pursue Windows x64 and then Android as the substantial
+2. After Linux hardening, pursue Windows x64 and then Android as the substantial
    frontend expansions. Treat macOS x64 and the remaining Arm targets as small,
    market-driven follow-ups, and require equivalent RetroArch lifecycle evidence
    for every support claim.
-4. Consider the export source generator when the next authorized hardware family
+3. Consider the export source generator when the next authorized hardware family
    beyond Game Boy and Game Boy Color provides a concrete consumer for it.
