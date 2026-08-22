@@ -297,9 +297,10 @@ anticipated Craterboy requirements until a second implementation needs them.
 
 ## Phase 5: Craterboy Readiness Work
 
-**Status:** In progress. Preallocated interleaved stereo output is complete in
-`Craterboy.Core`; see [PHASE-5.md](PHASE-5.md) for the cross-repository boundary,
-evidence, and remaining gate.
+**Status:** In progress. Preallocated interleaved stereo output and stable
+allocation-free raw-frame access are complete in `Craterboy.Core`; see
+[PHASE-5.md](PHASE-5.md) for the cross-repository boundary, evidence, and
+remaining gate.
 
 Complete these changes in `Craterboy.Core` before presenting it as the flagship
 libretro core:
@@ -309,8 +310,11 @@ libretro core:
 - Emit preallocated interleaved stereo samples rather than the current mono
   mixed stream. **Complete:** `Craterboy.Core` now exposes complete left/right
   frames through a bounded allocation-free drain.
-- Provide a stable, allocation-free frame access path.
-- Keep raw Game Boy pixels independent from presentation palettes.
+- Provide a stable, allocation-free frame access path. **Complete:** fixed
+  geometry and a retained read-only span expose model-native pixels without
+  steady-state copies.
+- Keep raw Game Boy pixels independent from presentation palettes. **Complete:**
+  monochrome shade and RGB15 formats remain explicit and frontend-neutral.
 - Implement explicit, versioned state serialization and transactional loading.
 - Expose stable save-RAM storage whose mutations are reflected directly in the
   cartridge, or provide a precisely synchronized adapter contract.
@@ -488,13 +492,12 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Formalize Craterboy's allocation-free raw-frame contract.
-2. Complete Craterboy's versioned transactional state format.
-3. Expose stable save RAM and define the supported system/video RAM and RTC
+1. Complete Craterboy's versioned transactional state format.
+2. Expose stable save RAM and define the supported system/video RAM and RTC
    regions.
-4. Keep the playable-DMG differential and ROM-test milestone moving in the
+3. Keep the playable-DMG differential and ROM-test milestone moving in the
    Craterboy repository.
-5. Benchmark the managed emulator under NativeAOT with video and audio enabled.
-6. Create `Craterboy.Libretro` only after those emulator-owned contracts are
+4. Benchmark the managed emulator under NativeAOT with video and audio enabled.
+5. Create `Craterboy.Libretro` only after those emulator-owned contracts are
    proven.
-7. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
+6. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
