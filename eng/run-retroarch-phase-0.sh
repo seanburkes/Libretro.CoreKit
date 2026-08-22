@@ -71,8 +71,10 @@ cc -std=c11 -Wall -Wextra -Wpedantic -Werror -fPIC -shared \
 cp "${core_path}" "${installed_core}"
 cp "${chip8_path}" "${installed_chip8}"
 cp "${control_path}" "${installed_control}"
-cp "${repo_root}/tests/RetroArch/corekit_probe_libretro.info" \
+cp "${repo_root}/eng/release/info/corekit_probe_libretro.info" \
   "${profile_root}/info/corekit_probe_libretro.info"
+cp "${repo_root}/eng/release/info/corekit_chip8_libretro.info" \
+  "${profile_root}/info/corekit_chip8_libretro.info"
 
 XDG_CONFIG_HOME="${profile_root}/config" \
 XDG_CACHE_HOME="${profile_root}/cache" \

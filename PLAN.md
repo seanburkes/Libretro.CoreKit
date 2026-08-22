@@ -350,7 +350,7 @@ compatibility-pin gate and remaining release-hardening slices.
 - Document the evidence required for SDK, header, frontend, and platform-support
   updates. **Complete.**
 - Generate release artifact checksums, licenses, `.info` files, and provenance
-  manifests.
+  manifests. **Complete for Linux x64.**
 - Establish an intentional minimum Linux glibc baseline.
 - Define public package versioning and compatibility guarantees.
 
@@ -528,15 +528,13 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Generate deterministic provenance manifests and companion release files for
-   the probe and CHIP-8 NativeAOT artifacts.
-2. Establish and validate the Linux glibc compatibility floor.
-3. Define managed package versioning and compatibility guarantees.
-4. Maintain the reusable host and both existing cores against their native-host
+1. Establish and validate the Linux glibc compatibility floor.
+2. Define managed package versioning and compatibility guarantees.
+3. Maintain the reusable host and both existing cores against their native-host
    and RetroArch gates.
-5. After Linux hardening, pursue Windows x64 and then Android as the substantial
+4. After Linux hardening, pursue Windows x64 and then Android as the substantial
    frontend expansions. Treat macOS x64 and the remaining Arm targets as small,
    market-driven follow-ups, and require equivalent RetroArch lifecycle evidence
    for every support claim.
-6. Consider the export source generator when the next authorized hardware family
+5. Consider the export source generator when the next authorized hardware family
    beyond Game Boy and Game Boy Color provides a concrete consumer for it.

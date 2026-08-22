@@ -1,0 +1,36 @@
+name: Phase 5 release artifacts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-linux-x64:
+    name: Linux x64 release bundle
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install NativeAOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Build and verify release bundles
+        run: ./eng/run-release.sh
+
+      - name: Upload release bundles
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-5-release-linux-x64
+          path: artifacts/release/linux-x64/*
+          if-no-files-found: error
