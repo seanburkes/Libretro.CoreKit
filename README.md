@@ -67,9 +67,9 @@ Its third slice declares glibc 2.34 as the Linux x64 binary compatibility floor,
 rejects newer ELF symbol requirements, resolves release cores with the pinned
 baseline loader, and records that evidence in each release manifest.
 Its fourth and final slice packages the reusable managed assembly as
-`Libretro.Core` `0.1.0-preview.1`, freezes the current public API manifest,
-enables SDK package validation, and proves a separate project can restore,
-build, and run using only the produced package.
+`Libretro.Core` `0.1.0-preview.2`, freezes the current public API manifest,
+enables SDK package validation, and proves separate managed and Linux NativeAOT
+publishing projects can build and run from the produced package.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -143,9 +143,16 @@ floor.
 ```
 
 This performs a locked restore, runs the public API and SDK package validators,
-creates `Libretro.Core.0.1.0-preview.1.nupkg` plus portable symbols under
+creates `Libretro.Core.0.1.0-preview.2.nupkg` plus portable symbols under
 `artifacts/managed-package`, verifies the package metadata and asset layout, and
 restores/builds/runs an independent consumer from that local package source.
+It also publishes a Linux x64 NativeAOT shared core from a package-only
+framework reference and runs that core through the independent C host, including
+the packaged variadic logging shim.
+
+This complete gate requires Linux x64, the .NET NativeAOT prerequisites, Clang,
+CMake, and a C11 compiler.
+
 A clean source tree is required; the documented dirty-tree override exists only
 for local inspection. CI uploads the packages as evidence but does not publish
 them. See [docs/managed-package-policy.md](docs/managed-package-policy.md) for

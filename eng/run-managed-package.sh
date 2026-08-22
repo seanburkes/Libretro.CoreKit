@@ -58,4 +58,43 @@ dotnet build "${consumer}" \
   -p:BaseIntermediateOutputPath="${consumer_obj}"
 dotnet "${work_root}/consumer/Libretro.Core.PackageConsumer.dll"
 
-echo "PASS: local package consumer restored, built, and ran"
+native_consumer="${repo_root}/tests/Libretro.Core.NativePackageConsumer/Libretro.Core.NativePackageConsumer.csproj"
+native_packages="${work_root}/native-packages"
+native_publish="${work_root}/native-consumer"
+native_host="${work_root}/native-host"
+dotnet publish "${native_consumer}" \
+  --configuration Release \
+  --runtime linux-x64 \
+  --source "${output_dir}" \
+  --source https://api.nuget.org/v3/index.json \
+  --packages "${native_packages}" \
+  --output "${native_publish}" \
+  --disable-build-servers \
+  -m:1 \
+  -p:DisableImplicitLibraryPacksFolder=true
+
+restored_package="${native_packages}/libretro.core/${package_version}/libretro.core.${package_version}.nupkg"
+if ! cmp -s "${package}" "${restored_package}"; then
+  echo "The native consumer did not restore the produced Libretro.Core package." >&2
+  exit 1
+fi
+
+native_core="${native_publish}/corekit_package_consumer_libretro.so"
+if [[ ! -f "${native_core}" ]]; then
+  echo "The package-backed NativeAOT core was not published at ${native_core}." >&2
+  exit 1
+fi
+
+cmake \
+  -S "${repo_root}/tests/Libretro.NativeHost" \
+  -B "${native_host}" \
+  -DCORE_PATH="${native_core}" \
+  -DCORE_CYCLES=1 \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build "${native_host}" --config Release
+ctest \
+  --test-dir "${native_host}" \
+  --build-config Release \
+  --output-on-failure
+
+echo "PASS: managed and NativeAOT consumers used the produced package"

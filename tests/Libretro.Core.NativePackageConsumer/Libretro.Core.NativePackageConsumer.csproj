@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>corekit_package_consumer_libretro</AssemblyName>
+    <RootNamespace>Libretro.NativeAot.Probe</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>false</StripSymbols>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux-'))">
+    <DirectPInvoke Include="__Internal" />
+    <LinkerArg Include="-Wl,-z,nodelete" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The framework comes only from the package. The linked files are the
+         concrete core behavior and export façade owned by its consumer. -->
+    <PackageReference Include="Libretro.Core"
+                      Version="$(CoreKitManagedPackageVersion)"
+                      GeneratePathProperty="true" />
+    <Compile Include="../../src/Libretro.NativeAot.Probe/Core/*.cs"
+             Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../../src/Libretro.NativeAot.Probe/Native/*.cs"
+             Link="Native/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Target Name="CompileLibretroLogShim"
+          BeforeTargets="SetupOSSpecificProps"
+          Condition="$(RuntimeIdentifier.StartsWith('linux-'))">
+    <PropertyGroup>
+      <LibretroNativeAssets>$(PkgLibretro_Core)/native</LibretroNativeAssets>
+      <LibretroLogShimObject>$(IntermediateOutputPath)native/libretro_log_shim.o</LibretroLogShimObject>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(LibretroNativeAssets)/libretro.h')"
+           Text="The Libretro.Core package is missing native/libretro.h." />
+    <Error Condition="!Exists('$(LibretroNativeAssets)/libretro_log_shim.c')"
+           Text="The Libretro.Core package is missing native/libretro_log_shim.c." />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName($(LibretroLogShimObject)))" />
+    <Exec Command="clang -std=c11 -fPIC -fvisibility=hidden -I&quot;$(LibretroNativeAssets)&quot; -c &quot;$(LibretroNativeAssets)/libretro_log_shim.c&quot; -o &quot;$(LibretroLogShimObject)&quot;" />
+    <ItemGroup>
+      <NativeLibrary Include="$(LibretroLogShimObject)" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -99,6 +99,8 @@ def validate_main(path: Path, project: dict[str, str], revision: str) -> None:
             "_rels/.rels",
             "Libretro.Core.nuspec",
             "lib/net10.0/Libretro.Core.dll",
+            "native/libretro.h",
+            "native/libretro_log_shim.c",
             "README.md",
             "[Content_Types].xml",
         }
@@ -114,6 +116,13 @@ def validate_main(path: Path, project: dict[str, str], revision: str) -> None:
             fail(f"Unexpected files in {path.name}: {names!r}")
         if archive.read("README.md") != (ROOT / "src/Libretro.Core/PACKAGE.md").read_bytes():
             fail("The packaged README does not match src/Libretro.Core/PACKAGE.md.")
+        native_assets = {
+            "native/libretro.h": ROOT / "eng/libretro/libretro.h",
+            "native/libretro_log_shim.c": ROOT / "src/Libretro.Core/Native/libretro_log_shim.c",
+        }
+        for name, source in native_assets.items():
+            if archive.read(name) != source.read_bytes():
+                fail(f"The packaged {name} does not match {source.relative_to(ROOT)}.")
 
         package = metadata(archive, "Libretro.Core.nuspec")
         expected = {

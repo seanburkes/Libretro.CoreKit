@@ -70,7 +70,7 @@ documented in
 
 ## Slice 4: Managed package contract
 
-`Libretro.Core` is packable as `0.1.0-preview.1` for `net10.0`, with complete
+`Libretro.Core` is packable as `0.1.0-preview.2` for `net10.0`, with complete
 NuGet metadata, a package README, portable symbols, no runtime package
 dependencies, and a locked analyzer dependency graph. CI builds and uploads the
 package as evidence but does not publish it externally.
@@ -88,11 +88,19 @@ directory. The version rules, promotion procedure, and compatibility guarantees
 are documented in
 [`docs/managed-package-policy.md`](docs/managed-package-policy.md).
 
+The gate also publishes the probe behavior as a Linux x64 NativeAOT shared core
+from a package-only framework reference. Its publishing assembly owns the
+mandatory exports and Linux linker decisions, compiles the packaged logging
+shim, and passes the independent C host's callback and logging lifecycle. This
+closes the difference between consuming the managed API and actually building
+an external native core from the package.
+
 ## Ongoing regression responsibility
 
 The probe and CHIP-8 cores remain regression consumers for framework changes.
 Their independent C hosts, Linux x64 RetroArch lifecycle, release bundle, glibc
 floor, and managed package jobs remain required gates.
 
-Phase 5 is complete. The next planned implementation phase is Windows x64
-frontend lifecycle support; Android follows it in platform priority.
+Phase 5 is complete and this repository is in maintenance mode. Future platform
+work remains Windows x64 frontend lifecycle support followed by Android, but no
+new implementation phase is active.

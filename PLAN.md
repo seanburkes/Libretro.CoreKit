@@ -354,7 +354,7 @@ release-provenance, glibc-floor, and managed-package gates.
 - Establish an intentional minimum Linux glibc baseline. **Complete at glibc
   2.34 for Linux x64.**
 - Define public package versioning and compatibility guarantees. **Complete for
-  the `0.1.0-preview.1` managed package line.**
+  the `0.1.0-preview.2` managed package line.**
 
 ## Future: Craterboy Libretro Adapter
 
@@ -530,11 +530,11 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Maintain the reusable host and both existing cores against their native-host
-   and RetroArch gates.
-2. After Linux hardening, pursue Windows x64 and then Android as the substantial
-   frontend expansions. Treat macOS x64 and the remaining Arm targets as small,
-   market-driven follow-ups, and require equivalent RetroArch lifecycle evidence
-   for every support claim.
+1. Keep the repository in maintenance mode while the reusable host and both
+   existing cores remain green against their native-host and RetroArch gates.
+2. When platform work resumes, pursue Windows x64 and then Android as the
+   substantial frontend expansions. Treat macOS x64 and the remaining Arm
+   targets as small, market-driven follow-ups, and require equivalent RetroArch
+   lifecycle evidence for every support claim.
 3. Consider the export source generator when the next authorized hardware family
    beyond Game Boy and Game Boy Color provides a concrete consumer for it.
