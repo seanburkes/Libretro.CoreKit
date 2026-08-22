@@ -295,36 +295,26 @@ core behavior:
 Use CHIP-8 to refine the reusable API. Do not introduce abstractions solely for
 anticipated Craterboy requirements until a second implementation needs them.
 
-## Phase 5: Deferred Craterboy Integration
+## Phase 5: Framework Hardening
 
-**Status:** Deferred until Craterboy reaches its own documented playable
-milestone and a fresh explicit go decision is made. Preallocated interleaved
-stereo output and stable allocation-free raw-frame access are complete and
-useful to `Craterboy.Core`, but they do not start an active adapter sequence.
-See [PHASE-5.md](PHASE-5.md) for the recorded evidence and re-entry guard.
+**Status:** In progress. See [PHASE-5.md](PHASE-5.md) for the implemented
+compatibility-pin gate and remaining release-hardening slices.
 
-The completed exploratory work is:
+- Enforce the .NET SDK, canonical header, and RetroArch pin relationships in a
+  network-free pull-request check. **Complete.**
+- Document the evidence required for SDK, header, frontend, and platform-support
+  updates. **Complete.**
+- Generate release artifact checksums, licenses, `.info` files, and provenance
+  manifests.
+- Establish an intentional minimum Linux glibc baseline.
+- Define public package versioning and compatibility guarantees.
 
-- Emit preallocated interleaved stereo samples rather than the current mono
-  mixed stream. **Complete:** `Craterboy.Core` now exposes complete left/right
-  frames through a bounded allocation-free drain.
-- Provide a stable, allocation-free frame access path. **Complete:** fixed
-  geometry and a retained read-only span expose model-native pixels without
-  steady-state copies.
-- Keep raw Game Boy pixels independent from presentation palettes. **Complete:**
-  monochrome shade and RGB15 formats remain explicit and frontend-neutral.
-- No other Craterboy requirement is scheduled by this plan. Craterboy's own
-  port plan governs playability, persistence, memory exposure, determinism, and
-  performance work.
+## Future: Craterboy Libretro Adapter
 
-Do not move libretro-specific lifecycle, pointers, or environment commands into
-`Craterboy.Core`, and do not add framework abstractions solely for anticipated
-Craterboy needs.
-
-## Phase 6: Craterboy Libretro Adapter
-
-**Status:** Deferred. This becomes a future Craterboy-owned project only after
-the Phase 5 re-entry guard passes and a new integration decision is recorded.
+**Status:** Deferred. See
+[`docs/future-craterboy.md`](docs/future-craterboy.md). This becomes a future
+Craterboy-owned project only after its re-entry guard passes and a new
+integration decision is recorded.
 
 If authorized later, create `Craterboy.Libretro` in the Craterboy repository as
 the concrete NativeAOT publishing project.
@@ -432,6 +422,7 @@ will work on older distributions.
 - Every claimed platform passes the native host and RetroArch smoke tests.
 - Lifecycle, ownership, thread, encoding, and error behavior are documented.
 - A compatibility policy exists for updating `libretro.h` and the .NET SDK.
+  **Complete:** the policy and automated pin check are part of Phase 5.
 
 ### Craterboy flagship release
 
@@ -492,9 +483,10 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Maintain the reusable host and CHIP-8 reference core against their existing
-   native-host and RetroArch gates.
-2. Add framework behavior only for current, demonstrated core requirements.
-3. Leave Craterboy priorities to its own port plan until the Phase 5 re-entry
-   guard passes.
-4. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
+1. Generate deterministic provenance manifests and companion release files for
+   the probe and CHIP-8 NativeAOT artifacts.
+2. Establish and validate the Linux glibc compatibility floor.
+3. Define managed package versioning and compatibility guarantees.
+4. Maintain the reusable host and both existing cores against their native-host
+   and RetroArch gates.
+5. Add frontend platforms only after equivalent RetroArch lifecycle evidence.

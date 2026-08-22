@@ -55,14 +55,19 @@ improvements—a preallocated interleaved-stereo frame ring and stable
 allocation-free 160x144 raw-frame access—remain useful to Craterboy, but do not
 start an active adapter sequence. Native ABI entry points, frontend pixel
 conversion, and RetroArch lifecycle behavior remain future Craterboy-owned
-work.
+work; see [docs/future-craterboy.md](docs/future-craterboy.md).
+
+Phase 5 hardens the framework independently. Its first slice adds an executable
+compatibility policy for the .NET SDK feature band, canonical libretro header,
+and pinned RetroArch lifecycle baseline. Pull requests validate those pins and
+the managed ABI constants without network access.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
 ABI layer, [PHASE-2.md](PHASE-2.md) records the completed reusable host, and
 [PHASE-3.md](PHASE-3.md) records the completed software sample.
 [PHASE-4.md](PHASE-4.md) records the completed CHIP-8 reference core, and
-[PHASE-5.md](PHASE-5.md) tracks Craterboy readiness work.
+[PHASE-5.md](PHASE-5.md) tracks framework hardening.
 Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
