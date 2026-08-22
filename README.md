@@ -66,6 +66,10 @@ and source/toolchain/build provenance. Pull requests validate both contracts.
 Its third slice declares glibc 2.34 as the Linux x64 binary compatibility floor,
 rejects newer ELF symbol requirements, resolves release cores with the pinned
 baseline loader, and records that evidence in each release manifest.
+Its fourth and final slice packages the reusable managed assembly as
+`Libretro.Core` `0.1.0-preview.1`, freezes the current public API manifest,
+enables SDK package validation, and proves a separate project can restore,
+build, and run using only the produced package.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -131,6 +135,21 @@ only for local inspection and records that state in the manifest. See
 [docs/release-artifacts.md](docs/release-artifacts.md) for the bundle contract
 and [docs/linux-glibc-baseline.md](docs/linux-glibc-baseline.md) for the runtime
 floor.
+
+## Build the managed preview package
+
+```sh
+./eng/run-managed-package.sh
+```
+
+This performs a locked restore, runs the public API and SDK package validators,
+creates `Libretro.Core.0.1.0-preview.1.nupkg` plus portable symbols under
+`artifacts/managed-package`, verifies the package metadata and asset layout, and
+restores/builds/runs an independent consumer from that local package source.
+A clean source tree is required; the documented dirty-tree override exists only
+for local inspection. CI uploads the packages as evidence but does not publish
+them. See [docs/managed-package-policy.md](docs/managed-package-policy.md) for
+the version and compatibility contract.
 
 ## Run the Linux RetroArch lifecycle gate
 

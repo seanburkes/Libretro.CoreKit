@@ -72,6 +72,18 @@ floor additionally requires an explicit support decision and release note;
 changing a container tag or digest is not dependency housekeeping when it is
 part of the compatibility evidence.
 
+## Managed package and public API
+
+`Libretro.Core` follows the version and promotion rules in
+[`managed-package-policy.md`](managed-package-policy.md). Public API analyzer
+manifests make every surface change explicit, while SDK package validation and
+the independent package consumer enforce the produced NuGet contract.
+
+No package is currently published. Do not configure a baseline version, mark
+APIs shipped, or push a workflow artifact to an external feed until publication
+is explicitly authorized. Once a baseline exists, compatible releases compare
+against the latest published version in their compatibility line.
+
 ## Support claims
 
 Linux x64 remains the only RetroArch-supported target. NativeAOT artifacts and

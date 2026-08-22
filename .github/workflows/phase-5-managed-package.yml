@@ -1,0 +1,33 @@
+name: Phase 5 managed package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  managed-package:
+    name: Managed package
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and consume managed package
+        run: ./eng/run-managed-package.sh
+
+      - name: Upload managed package
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-5-managed-package
+          path: artifacts/managed-package/*.*nupkg
+          if-no-files-found: error

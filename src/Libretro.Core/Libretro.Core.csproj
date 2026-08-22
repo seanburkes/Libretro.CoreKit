@@ -7,6 +7,32 @@
     <IsAotCompatible>true</IsAotCompatible>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <IsPackable>false</IsPackable>
+    <IsPackable>true</IsPackable>
+    <Version>$(CoreKitManagedPackageVersion)</Version>
+    <PackageId>Libretro.Core</PackageId>
+    <Title>Libretro.Core</Title>
+    <Authors>Sean Burkes</Authors>
+    <Description>Reusable, strongly typed .NET hosting primitives for NativeAOT libretro cores.</Description>
+    <Copyright>Copyright (c) 2026 Sean Burkes</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/seanburkes/Libretro.CoreKit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/seanburkes/Libretro.CoreKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>libretro;retroarch;emulation;nativeaot</PackageTags>
+    <PackageReleaseNotes>Initial preview package for the reusable managed host and ABI layer.</PackageReleaseNotes>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+    <None Update="PACKAGE.md" Pack="true" PackagePath="README.md" />
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers"
+                      Version="5.6.0"
+                      PrivateAssets="all" />
+  </ItemGroup>
 </Project>
