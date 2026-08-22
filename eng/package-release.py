@@ -217,6 +217,27 @@ def build_identity(project: str) -> dict[str, object]:
     }
 
 
+def linux_compatibility(binary: Path) -> dict[str, object]:
+    result = json.loads(
+        run(
+            sys.executable,
+            "eng/check-glibc-baseline.py",
+            "--json",
+            str(binary),
+        )
+    )
+    artifacts = result.get("artifacts", [])
+    baseline = result.get("baseline")
+    if len(artifacts) != 1 or not isinstance(baseline, dict):
+        fail(f"Unexpected glibc baseline result for {binary}.")
+    artifact = artifacts[0]
+    return {
+        "baseline": baseline,
+        "maximumRequiredGlibcVersion": artifact["maximumRequiredGlibcVersion"],
+        "requiredGlibcVersions": artifact["requiredGlibcVersions"],
+    }
+
+
 def write_archive(
     core: Core,
     publish_directory: Path,
@@ -264,7 +285,10 @@ def write_archive(
             "runtimeIdentifier": RID,
         },
         "build": build_identity(core.project),
-        "compatibility": compatibility,
+        "compatibility": {
+            **compatibility,
+            "linuxRuntime": linux_compatibility(publish_directory / core.binary),
+        },
         "files": sorted(files, key=lambda item: str(item["path"])),
         "schemaVersion": 1,
         "source": source,

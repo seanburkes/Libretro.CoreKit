@@ -52,6 +52,10 @@ dotnet publish \
   -p:StripSymbols=true \
   --disable-build-servers
 
+"${repo_root}/eng/run-glibc-baseline.sh" \
+  "${probe_dir}/corekit_probe_libretro.so" \
+  "${chip8_dir}/corekit_chip8_libretro.so"
+
 cmake \
   -S "${repo_root}/tests/Libretro.Chip8.NativeHost" \
   -B "${chip8_host_dir}" \
