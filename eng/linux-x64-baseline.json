@@ -1,0 +1,8 @@
+{
+  "architecture": "x86_64",
+  "distribution": "Red Hat Universal Base Image 9",
+  "glibcVersion": "2.34",
+  "runtimeIdentifier": "linux-x64",
+  "runtimeImage": "registry.access.redhat.com/ubi9/ubi-minimal@sha256:285fe1836090b985747a93cda2c3c07c0560a1d90a8522ab27877ed2fd5166ee",
+  "schemaVersion": 1
+}

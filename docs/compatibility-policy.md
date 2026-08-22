@@ -60,6 +60,18 @@ To update the baseline:
 Testing a current stable RetroArch release is useful as a non-blocking signal;
 it does not replace the pinned reproducible gate.
 
+## Linux x64 glibc baseline
+
+`eng/linux-x64-baseline.json` declares glibc 2.34 and pins the UBI 9 image used
+as the oldest runtime loader gate. `eng/check-glibc-baseline.py` also enforces
+the maximum imported `GLIBC_*` symbol version before packaging.
+
+A glibc floor or image update must pass the complete release gate, both
+independent C hosts, and the Linux x64 RetroArch lifecycle gate. Raising the
+floor additionally requires an explicit support decision and release note;
+changing a container tag or digest is not dependency housekeeping when it is
+part of the compatibility evidence.
+
 ## Support claims
 
 Linux x64 remains the only RetroArch-supported target. NativeAOT artifacts and

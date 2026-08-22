@@ -63,6 +63,9 @@ and pinned RetroArch lifecycle baseline. Its second slice produces deterministic
 Linux x64 release bundles for the probe and CHIP-8 cores with canonical `.info`
 metadata, project/libretro/.NET license material, complete archive checksums,
 and source/toolchain/build provenance. Pull requests validate both contracts.
+Its third slice declares glibc 2.34 as the Linux x64 binary compatibility floor,
+rejects newer ELF symbol requirements, resolves release cores with the pinned
+baseline loader, and records that evidence in each release manifest.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
@@ -121,10 +124,13 @@ This publishes stripped probe and CHIP-8 NativeAOT cores with separate native
 debug symbols, creates one release ZIP per core under
 `artifacts/release/linux-x64`, verifies each provenance manifest and archive
 checksum, executes both stripped cores through their independent C hosts, and
-repeats packaging to require byte-identical outputs. A clean source tree is
-required; `COREKIT_RELEASE_ALLOW_DIRTY=1` exists only for local inspection and
-records that state in the manifest. See
-[docs/release-artifacts.md](docs/release-artifacts.md) for the bundle contract.
+relocates them with a digest-pinned glibc 2.34 runtime, then repeats packaging to
+require byte-identical outputs. Requirements include `readelf` plus Docker or
+Podman. A clean source tree is required; `COREKIT_RELEASE_ALLOW_DIRTY=1` exists
+only for local inspection and records that state in the manifest. See
+[docs/release-artifacts.md](docs/release-artifacts.md) for the bundle contract
+and [docs/linux-glibc-baseline.md](docs/linux-glibc-baseline.md) for the runtime
+floor.
 
 ## Run the Linux RetroArch lifecycle gate
 

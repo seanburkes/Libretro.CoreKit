@@ -343,7 +343,8 @@ anticipated Craterboy requirements until a second implementation needs them.
 ## Phase 5: Framework Hardening
 
 **Status:** In progress. See [PHASE-5.md](PHASE-5.md) for the implemented
-compatibility-pin gate and remaining release-hardening slices.
+compatibility, release-provenance, and glibc-floor gates plus the remaining
+release-hardening slices.
 
 - Enforce the .NET SDK, canonical header, and RetroArch pin relationships in a
   network-free pull-request check. **Complete.**
@@ -351,7 +352,8 @@ compatibility-pin gate and remaining release-hardening slices.
   updates. **Complete.**
 - Generate release artifact checksums, licenses, `.info` files, and provenance
   manifests. **Complete for Linux x64.**
-- Establish an intentional minimum Linux glibc baseline.
+- Establish an intentional minimum Linux glibc baseline. **Complete at glibc
+  2.34 for Linux x64.**
 - Define public package versioning and compatibility guarantees.
 
 ## Future: Craterboy Libretro Adapter
@@ -528,13 +530,12 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Establish and validate the Linux glibc compatibility floor.
-2. Define managed package versioning and compatibility guarantees.
-3. Maintain the reusable host and both existing cores against their native-host
+1. Define managed package versioning and compatibility guarantees.
+2. Maintain the reusable host and both existing cores against their native-host
    and RetroArch gates.
-4. After Linux hardening, pursue Windows x64 and then Android as the substantial
+3. After Linux hardening, pursue Windows x64 and then Android as the substantial
    frontend expansions. Treat macOS x64 and the remaining Arm targets as small,
    market-driven follow-ups, and require equivalent RetroArch lifecycle evidence
    for every support claim.
-5. Consider the export source generator when the next authorized hardware family
+4. Consider the export source generator when the next authorized hardware family
    beyond Game Boy and Game Boy Color provides a concrete consumer for it.

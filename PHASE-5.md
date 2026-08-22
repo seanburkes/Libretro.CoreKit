@@ -1,9 +1,9 @@
 # Phase 5: Framework Hardening
 
-**Status:** In progress. Compatibility pins are executable policy and Linux x64
-release bundles now carry deterministic provenance and required companion
-material. Craterboy integration is separate, deferred future work and is not
-part of this phase.
+**Status:** In progress. Compatibility pins are executable policy, Linux x64
+release bundles carry deterministic provenance and required companion material,
+and their glibc 2.34 compatibility floor is enforced. Craterboy integration is
+separate, deferred future work and is not part of this phase.
 
 ## Slice 1: Compatibility pin policy
 
@@ -51,12 +51,27 @@ its independent C host, enforces the packaging contract, and uploads the three
 resulting release files. The format and verification procedure are documented
 in [`docs/release-artifacts.md`](docs/release-artifacts.md).
 
+## Slice 3: Linux x64 glibc floor
+
+Linux x64 release cores require glibc 2.34 or newer. The canonical baseline
+records that version and a digest-pinned Red Hat UBI 9 runtime image.
+
+The release gate rejects ELF artifacts that import a newer `GLIBC_*` symbol
+version, then asks the glibc 2.34 loader to resolve every dependency and
+relocation with `ldd -r` inside the pinned image. Both cores still execute
+through their independent C hosts after this compatibility check, keeping the
+native host as the ABI and lifecycle oracle.
+
+Each release manifest records the baseline and the exact glibc symbol versions
+required by its core artifact. The support boundary and update procedure are
+documented in
+[`docs/linux-glibc-baseline.md`](docs/linux-glibc-baseline.md).
+
 ## Remaining hardening work
 
-- Establish and test an intentional minimum Linux glibc baseline.
 - Define public package versioning and compatibility guarantees for the
   reusable managed API.
 - Keep the probe and CHIP-8 cores as regression consumers for framework changes.
 
-The next slice should establish and test the Linux glibc compatibility floor.
-It does not need another emulator to justify itself.
+The next slice should define managed package versioning and compatibility
+guarantees. It does not need another emulator to justify itself.

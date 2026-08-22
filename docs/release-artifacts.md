@@ -35,9 +35,10 @@ Each core archive contains:
 
 The provenance schema records the exact .NET SDK, RID, configuration, evaluated
 NativeAOT properties, direct P/Invoke and linker settings, canonical libretro
-header revision and checksum, pinned RetroArch lifecycle revision, source
-revision and tree, dirty-tree state, and the size and SHA-256 of every companion
-file other than the manifest itself. The archive checksum covers the manifest.
+header revision and checksum, pinned RetroArch lifecycle revision, Linux x64
+glibc floor and required symbol versions, source revision and tree, dirty-tree
+state, and the size and SHA-256 of every companion file other than the manifest
+itself. The archive checksum covers the manifest.
 
 ## Determinism and verification
 
@@ -56,8 +57,11 @@ sha256sum -c SHA256SUMS
 
 The `Linux x64 release bundle` pull-request job performs the clean-tree build,
 executes both stripped cores through their independent C hosts, validates both
-manifests and archive layouts, repeats the determinism check, and uploads all
-three files as one GitHub Actions artifact.
+manifests and archive layouts, rejects glibc requirements newer than 2.34,
+resolves every core relocation with the digest-pinned glibc 2.34 loader, repeats
+the determinism check, and uploads all three files as one GitHub Actions
+artifact. See [linux-glibc-baseline.md](linux-glibc-baseline.md) for the exact
+support boundary and update procedure.
 
 To install a bundle manually, place its `.so` file in RetroArch's core directory
 and its `.info` file in the frontend's core-info directory. License and
