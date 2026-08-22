@@ -1,87 +1,41 @@
-# Phase 5: Deferred Craterboy Integration
+# Phase 5: Framework Hardening
 
-**Status:** Deferred. `Craterboy.Core` is not yet a complete or playable
-emulator. The stereo-audio and raw-frame work recorded below remains useful to
-Craterboy, but CoreKit no longer schedules further Craterboy work.
+**Status:** In progress. Compatibility pins are now executable policy rather
+than scattered repository conventions. Craterboy integration is separate,
+deferred future work and is not part of this phase.
 
-Emulator behavior and host-neutral buffers belong in
-[`craterboy-net`](https://github.com/seanburkes/craterboy-net). Any future
-`Craterboy.Libretro` publishing project will also be owned there and may consume
-Libretro.CoreKit after a new integration decision. Native ABI entry points,
-frontend callbacks, and RetroArch lifecycle behavior must not enter
-`Craterboy.Core`.
+## Slice 1: Compatibility pin policy
 
-Linux x64 remains the only RetroArch-supported target. Changes to the managed
-emulator alone do not expand that compatibility claim.
+The repository now has one compatibility contract for:
 
-## Slice 1: Interleaved stereo audio
+- the minimum .NET SDK and allowed patch roll-forward behavior;
+- the canonical `libretro-common` revision, source URL, vendored-header hash,
+  API version, and core-option capacity;
+- the pinned RetroArch lifecycle revision and required local command-poller
+  patch; and
+- the distinction between NativeAOT artifact evidence and actual frontend
+  support.
 
-Completed by
-[`craterboy-net` PR #329](https://github.com/seanburkes/craterboy-net/pull/329)
-at commit `f2447ba`.
+`eng/check-compatibility-pins.py` validates those relationships without network
+access and reports the exact SDK selected by `global.json`. A dedicated pull
+request job runs the checker for every repository change.
 
-The Craterboy APU now:
+The update and promotion procedure is documented in
+[`docs/compatibility-policy.md`](docs/compatibility-policy.md). Patch-level SDK
+updates still require the complete existing matrix. New SDK feature bands,
+libretro headers, RetroArch baselines, and platform support claims require an
+explicit compatibility decision plus the relevant native-host and frontend
+lifecycle evidence.
 
-- writes complete left/right frames into a preallocated 4,096-frame ring;
-- applies NR51 channel routing and NR50 volume independently to each side;
-- exposes `Emulator.CopyAudioFrames(Span<short>)`, using libretro-compatible
-  left/right interleaving and returning a stereo-frame count;
-- rejects odd-length destinations rather than returning a partial frame;
-- drops only complete oldest frames when the bounded ring is full; and
-- includes both channels and frame-ring indices in deterministic state hashes.
+## Remaining hardening work
 
-The focused tests distinguish left-only, right-only, asymmetrical-volume,
-muted, and identical-default output. A warm steady-state emission and drain
-performs zero managed allocations.
+- Produce release-ready core artifacts with checksums, licenses, `.info` files,
+  and a provenance manifest containing the SDK, RID, header revision, source
+  revision, and build options.
+- Establish and test an intentional minimum Linux glibc baseline.
+- Define public package versioning and compatibility guarantees for the
+  reusable managed API.
+- Keep the probe and CHIP-8 cores as regression consumers for framework changes.
 
-Validation on the merged Craterboy revision:
-
-- 581 Release tests pass, including the pinned SameBoy differential suite.
-- Focused formatting verification passes for the changed APU and kernel-test
-  files.
-- The shipping core remains dependency-free and contains no libretro concepts.
-
-## Slice 2: Stable allocation-free raw frame
-
-Completed by
-[`craterboy-net` PR #331](https://github.com/seanburkes/craterboy-net/pull/331)
-at commit `8f7eea5`.
-
-The Craterboy PPU now:
-
-- exposes fixed `FrameWidth`, `FrameHeight`, and `FramePixelCount` constants;
-- exposes a retained `ReadOnlySpan<ushort>` through `Emulator.RawFrame` without
-  copying or permitting callers to mutate the backing buffer;
-- identifies the model-native data through `GameBoyFrameFormat`, using hardware
-  shade values for monochrome models and RGB15 palette words for color models;
-- keeps presentation palette conversion outside the emulator; and
-- reuses sprite-composition scratch buffers instead of allocating them during
-  frame execution.
-
-The focused tests cover monochrome and color formats, in-place frame updates,
-reset clearing through a retained span, and zero managed allocations for a
-warmed sprite-enabled frame plus raw-frame access.
-
-Validation on the merged Craterboy revision:
-
-- 587 Release tests pass, including the pinned SameBoy differential suite.
-- Focused formatting verification passes for the changed abstraction, PPU, and
-  kernel-test files.
-- The raw frame remains model-native; the future adapter owns conversion to the
-  frontend's negotiated software pixel format.
-
-## Re-entry guard
-
-Do not resume Craterboy integration work from this repository until:
-
-- Craterboy reaches its own documented playable milestone under its own port
-  plan and correctness gates;
-- the Craterboy repository proposes an adapter based on demonstrated emulator
-  requirements rather than anticipated ones; and
-- a fresh explicit go decision authorizes the publishing and RetroArch
-  integration work.
-
-Until then, do not scaffold `Craterboy.Libretro`, use this document to prioritize
-Craterboy work, or add CoreKit abstractions solely for that future adapter. The
-two completed slices remain here as historical evidence, not as the beginning
-of an active integration sequence.
+The next slice should add deterministic artifact provenance for the probe and
+CHIP-8 NativeAOT outputs. It does not need another emulator to justify itself.

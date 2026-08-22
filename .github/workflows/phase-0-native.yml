@@ -10,6 +10,21 @@ permissions:
   contents: read
 
 jobs:
+  compatibility-pins:
+    name: Compatibility pins
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Validate compatibility pins
+        run: python3 eng/check-compatibility-pins.py
+
   native-lifecycle:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
