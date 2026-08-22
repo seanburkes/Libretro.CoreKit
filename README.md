@@ -49,10 +49,10 @@ Malformed execution halts deterministically without partial memory writes, and
 the independent host proves byte-identical reset and state replay across stack,
 control-flow, opcode, and memory-boundary failures.
 
-Phase 5 is in progress in the sibling Craterboy repository. Its first readiness
-slice replaces the mono APU drain with a preallocated interleaved-stereo frame
-ring, preserves independent NR50/NR51 left/right behavior, and proves
-allocation-free steady-state emission and draining. Native ABI entry points and
+Phase 5 is in progress in the sibling Craterboy repository. Its completed
+readiness slices provide a preallocated interleaved-stereo frame ring and a
+stable allocation-free 160x144 raw-frame span with explicit monochrome-shade
+and RGB15 formats. Native ABI entry points, frontend pixel conversion, and
 RetroArch lifecycle behavior remain deferred to the Phase 6 adapter.
 
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for

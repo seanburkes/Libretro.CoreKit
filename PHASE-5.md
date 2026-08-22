@@ -1,7 +1,8 @@
 # Phase 5: Craterboy Readiness Work
 
-**Status:** In progress. The first adapter-facing emulator contract is complete
-in `Craterboy.Core`; no Craterboy libretro publishing assembly exists yet.
+**Status:** In progress. The stereo-audio and raw-frame adapter contracts are
+complete in `Craterboy.Core`; no Craterboy libretro publishing assembly exists
+yet.
 
 Phase 5 is intentionally split across repositories. Emulator behavior and
 host-neutral buffers belong in
@@ -39,19 +40,46 @@ Validation on the merged Craterboy revision:
   files.
 - The shipping core remains dependency-free and contains no libretro concepts.
 
+## Slice 2: Stable allocation-free raw frame
+
+Completed by
+[`craterboy-net` PR #331](https://github.com/seanburkes/craterboy-net/pull/331)
+at commit `8f7eea5`.
+
+The Craterboy PPU now:
+
+- exposes fixed `FrameWidth`, `FrameHeight`, and `FramePixelCount` constants;
+- exposes a retained `ReadOnlySpan<ushort>` through `Emulator.RawFrame` without
+  copying or permitting callers to mutate the backing buffer;
+- identifies the model-native data through `GameBoyFrameFormat`, using hardware
+  shade values for monochrome models and RGB15 palette words for color models;
+- keeps presentation palette conversion outside the emulator; and
+- reuses sprite-composition scratch buffers instead of allocating them during
+  frame execution.
+
+The focused tests cover monochrome and color formats, in-place frame updates,
+reset clearing through a retained span, and zero managed allocations for a
+warmed sprite-enabled frame plus raw-frame access.
+
+Validation on the merged Craterboy revision:
+
+- 587 Release tests pass, including the pinned SameBoy differential suite.
+- Focused formatting verification passes for the changed abstraction, PPU, and
+  kernel-test files.
+- The raw frame remains model-native; the future adapter owns conversion to the
+  frontend's negotiated software pixel format.
+
 ## Remaining readiness gate
 
 Before Phase 6 creates `Craterboy.Libretro`, Craterboy still needs:
 
 - a documented playable DMG milestone with its differential and ROM-test gates;
-- a stable, allocation-free raw-frame access contract independent of
-  presentation palettes;
 - explicit versioned state serialization with transactional loading;
 - stable save RAM plus defined system RAM, video RAM, and RTC exposure;
 - deterministic frame, reset, input, time, and entropy behavior at the public
   adapter boundary; and
 - a NativeAOT benchmark with video and audio enabled.
 
-The next narrow slice should formalize and allocation-test the raw 160x144
-frame contract. Creating the native adapter before these contracts settle would
-only move unfinished emulator ownership into the wrong repository.
+The next narrow slice should define explicit versioned state serialization and
+transactional loading. Creating the native adapter before that contract settles
+would only move unfinished emulator ownership into the wrong repository.
