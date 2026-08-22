@@ -33,6 +33,18 @@ behavior from the managed core.
 - Native exports remain in each concrete publishing assembly because NativeAOT
   does not export `UnmanagedCallersOnly` methods from referenced assemblies.
 
+## Craterboy boundary
+
+- Craterboy integration is deferred until that emulator reaches its own
+  documented playable milestone and receives a fresh explicit go decision.
+- Do not create `Craterboy.Libretro`, schedule Craterboy roadmap work, or add
+  framework abstractions solely for anticipated Craterboy requirements.
+- The Craterboy repository owns emulator priorities and any future publishing
+  project. CoreKit may record historical compatibility evidence, but its plan
+  is not a Craterboy backlog.
+- Host-neutral Craterboy APIs are acceptable only when independently useful to
+  the emulator and justified by its current port layer without libretro.
+
 ## Working style
 
 - Build small vertical slices through managed code, the native host, and

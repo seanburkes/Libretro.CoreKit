@@ -295,18 +295,16 @@ core behavior:
 Use CHIP-8 to refine the reusable API. Do not introduce abstractions solely for
 anticipated Craterboy requirements until a second implementation needs them.
 
-## Phase 5: Craterboy Readiness Work
+## Phase 5: Deferred Craterboy Integration
 
-**Status:** In progress. Preallocated interleaved stereo output and stable
-allocation-free raw-frame access are complete in `Craterboy.Core`; see
-[PHASE-5.md](PHASE-5.md) for the cross-repository boundary, evidence, and
-remaining gate.
+**Status:** Deferred until Craterboy reaches its own documented playable
+milestone and a fresh explicit go decision is made. Preallocated interleaved
+stereo output and stable allocation-free raw-frame access are complete and
+useful to `Craterboy.Core`, but they do not start an active adapter sequence.
+See [PHASE-5.md](PHASE-5.md) for the recorded evidence and re-entry guard.
 
-Complete these changes in `Craterboy.Core` before presenting it as the flagship
-libretro core:
+The completed exploratory work is:
 
-- Reach a documented playable DMG milestone with the existing differential and
-  ROM-test gates passing.
 - Emit preallocated interleaved stereo samples rather than the current mono
   mixed stream. **Complete:** `Craterboy.Core` now exposes complete left/right
   frames through a bounded allocation-free drain.
@@ -315,19 +313,21 @@ libretro core:
   steady-state copies.
 - Keep raw Game Boy pixels independent from presentation palettes. **Complete:**
   monochrome shade and RGB15 formats remain explicit and frontend-neutral.
-- Implement explicit, versioned state serialization and transactional loading.
-- Expose stable save-RAM storage whose mutations are reflected directly in the
-  cartridge, or provide a precisely synchronized adapter contract.
-- Define stable system RAM, video RAM, and RTC exposure where supported.
-- Preserve deterministic `RunFrame`, reset, input, time, and entropy behavior.
-- Benchmark NativeAOT execution with video and audio enabled.
+- No other Craterboy requirement is scheduled by this plan. Craterboy's own
+  port plan governs playability, persistence, memory exposure, determinism, and
+  performance work.
 
 Do not move libretro-specific lifecycle, pointers, or environment commands into
-`Craterboy.Core`.
+`Craterboy.Core`, and do not add framework abstractions solely for anticipated
+Craterboy needs.
 
 ## Phase 6: Craterboy Libretro Adapter
 
-Create `Craterboy.Libretro` as the concrete NativeAOT publishing project.
+**Status:** Deferred. This becomes a future Craterboy-owned project only after
+the Phase 5 re-entry guard passes and a new integration decision is recorded.
+
+If authorized later, create `Craterboy.Libretro` in the Craterboy repository as
+the concrete NativeAOT publishing project.
 
 Initial behavior:
 
@@ -492,12 +492,9 @@ implementation if the new framework is intended to use a permissive license.
 
 ## Immediate Next Actions
 
-1. Complete Craterboy's versioned transactional state format.
-2. Expose stable save RAM and define the supported system/video RAM and RTC
-   regions.
-3. Keep the playable-DMG differential and ROM-test milestone moving in the
-   Craterboy repository.
-4. Benchmark the managed emulator under NativeAOT with video and audio enabled.
-5. Create `Craterboy.Libretro` only after those emulator-owned contracts are
-   proven.
-6. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
+1. Maintain the reusable host and CHIP-8 reference core against their existing
+   native-host and RetroArch gates.
+2. Add framework behavior only for current, demonstrated core requirements.
+3. Leave Craterboy priorities to its own port plan until the Phase 5 re-entry
+   guard passes.
+4. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
