@@ -49,11 +49,18 @@ Malformed execution halts deterministically without partial memory writes, and
 the independent host proves byte-identical reset and state replay across stack,
 control-flow, opcode, and memory-boundary failures.
 
+Phase 5 is in progress in the sibling Craterboy repository. Its first readiness
+slice replaces the mono APU drain with a preallocated interleaved-stereo frame
+ring, preserves independent NR50/NR51 left/right behavior, and proves
+allocation-free steady-state emission and draining. Native ABI entry points and
+RetroArch lifecycle behavior remain deferred to the Phase 6 adapter.
+
 See [PLAN.md](PLAN.md) for the overall roadmap and [PHASE-0.md](PHASE-0.md) for
 the compatibility-gate playbook. [PHASE-1.md](PHASE-1.md) records the completed
 ABI layer, [PHASE-2.md](PHASE-2.md) records the completed reusable host, and
 [PHASE-3.md](PHASE-3.md) records the completed software sample.
-[PHASE-4.md](PHASE-4.md) tracks the CHIP-8 reference core as it is implemented.
+[PHASE-4.md](PHASE-4.md) records the completed CHIP-8 reference core, and
+[PHASE-5.md](PHASE-5.md) tracks Craterboy readiness work.
 Measurements, limitations, and the Phase 0 decision are in
 [docs/phase-0-results.md](docs/phase-0-results.md).
 
