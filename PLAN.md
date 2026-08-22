@@ -23,14 +23,38 @@ The current supported target is:
 
 - Linux x64 with the documented process-lifetime resident module.
 
-The intended expansion targets are:
+After Linux release hardening, frontend support should expand in this order:
 
-- Windows x64 and Arm64.
-- Linux x64 and Arm64 using a documented minimum glibc baseline.
-- macOS x64 and Arm64.
-- Dynamically loaded libretro cores.
-- Software-rendered video and signed 16-bit interleaved stereo audio.
-- Managed emulator implementations that are trimming- and NativeAOT-compatible.
+1. Windows x64.
+2. Android, with Arm64 devices as the primary target and x64 retained for
+   emulator and development-host coverage.
+3. macOS x64.
+4. The remaining Arm64 targets, including Windows, Linux, and macOS.
+
+Windows x64 and Android are the only post-Linux targets currently expected to
+justify substantial first-class support work. macOS x64 and the remaining Arm
+targets represent much smaller expected audiences and should advance through
+small, evidence-backed slices when runner, device, and maintainer capacity is
+available. Existing NativeAOT artifact and independent C-host results can
+reduce that work, but do not change the market priority or establish frontend
+support.
+
+The intended cores remain dynamically loaded, software-rendered libretro cores
+with signed 16-bit interleaved stereo audio. Managed emulator implementations
+must remain trimming- and NativeAOT-compatible.
+
+Additional platform investigations are deliberately lower priority:
+
+- Linux musl x64 and Arm64 for Alpine and appliance-style distributions.
+- Flatpak, Lakka, Batocera, SteamOS, and similar Linux distribution environments;
+  these are packaging and runtime variants rather than new native ABIs.
+- iOS and tvOS, which require signed, application-bundled core artifacts.
+- WebAssembly, which requires a different frontend/export boundary rather than
+  another NativeAOT shared-library RID.
+- Linux Arm32 and Windows x86 for older hardware where toolchain and user demand
+  justify the maintenance cost.
+- BSD, Haiku, and game consoles, which require runtime, proprietary toolchain,
+  static-linking, or frontend-packaging work beyond the current architecture.
 
 The initial scope does not promise:
 
@@ -41,8 +65,9 @@ The initial scope does not promise:
 - Multiple active core instances in one native library.
 - A general-purpose .NET frontend capable of loading other libretro cores.
 
-Android may be investigated after the desktop implementation is stable, but it
-is not part of the first compatibility claim.
+Android is the second planned expansion target after Windows x64. It requires a
+Bionic/NDK NativeAOT artifact, Android ABI packaging, and equivalent RetroArch
+lifecycle evidence; an ordinary `linux-arm64` artifact is not Android support.
 
 ## Why Not the Alternatives
 
@@ -159,9 +184,29 @@ the behavior behind that façade.
 
 Hand-author the export façade initially. The libretro ABI has a small, fixed set
 of mandatory exports, and explicit code is easier to review during ABI bring-up.
-After both CHIP-8 and Craterboy adapters exist, evaluate a source generator that
-emits forwarding exports into the consuming project. Do not make the generator
-a prerequisite for the first working core.
+The probe and CHIP-8 cores intentionally remain readable reference consumers
+through Linux release hardening.
+
+Re-evaluate a source generator when a future hardware-family expansion beyond
+Game Boy and Game Boy Color is actually authorized. That trigger does not
+schedule a Craterboy adapter and does not make framework work depend on
+Craterboy readiness. It marks the point where another concrete consumer may
+justify replacing repeated, already-proven native-boundary plumbing.
+
+The generator may:
+
+- emit all mandatory `retro_*` methods into the concrete publishing assembly so
+  NativeAOT exports them;
+- create the concrete `LibretroHost<TCore>` binding and forward the exact Cdecl
+  signatures;
+- apply the standard exception containment and safe native fallback values; and
+- report compile-time diagnostics for missing or duplicate core declarations,
+  incompatible core types, and invalid construction requirements.
+
+It must not generate emulator behavior, libretro options, serialized-state
+formats, native logging shims, platform linker settings, `.info` files, or
+RetroArch lifecycle evidence. The generator is developer-experience tooling,
+not a prerequisite for platform support or proof that an emulator is ready.
 
 ## Phase 0: NativeAOT and RetroArch Compatibility Gate
 
@@ -489,4 +534,9 @@ implementation if the new framework is intended to use a permissive license.
 3. Define managed package versioning and compatibility guarantees.
 4. Maintain the reusable host and both existing cores against their native-host
    and RetroArch gates.
-5. Add frontend platforms only after equivalent RetroArch lifecycle evidence.
+5. After Linux hardening, pursue Windows x64 and then Android as the substantial
+   frontend expansions. Treat macOS x64 and the remaining Arm targets as small,
+   market-driven follow-ups, and require equivalent RetroArch lifecycle evidence
+   for every support claim.
+6. Consider the export source generator when the next authorized hardware family
+   beyond Game Boy and Game Boy Color provides a concrete consumer for it.
