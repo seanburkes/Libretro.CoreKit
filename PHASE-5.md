@@ -1,14 +1,15 @@
-# Phase 5: Craterboy Readiness Work
+# Phase 5: Deferred Craterboy Integration
 
-**Status:** In progress. The stereo-audio and raw-frame adapter contracts are
-complete in `Craterboy.Core`; no Craterboy libretro publishing assembly exists
-yet.
+**Status:** Deferred. `Craterboy.Core` is not yet a complete or playable
+emulator. The stereo-audio and raw-frame work recorded below remains useful to
+Craterboy, but CoreKit no longer schedules further Craterboy work.
 
-Phase 5 is intentionally split across repositories. Emulator behavior and
-host-neutral buffers belong in
-[`craterboy-net`](https://github.com/seanburkes/craterboy-net), while native ABI
-entry points, frontend callbacks, and RetroArch lifecycle behavior remain in
-Libretro.CoreKit and the future `Craterboy.Libretro` publishing project.
+Emulator behavior and host-neutral buffers belong in
+[`craterboy-net`](https://github.com/seanburkes/craterboy-net). Any future
+`Craterboy.Libretro` publishing project will also be owned there and may consume
+Libretro.CoreKit after a new integration decision. Native ABI entry points,
+frontend callbacks, and RetroArch lifecycle behavior must not enter
+`Craterboy.Core`.
 
 Linux x64 remains the only RetroArch-supported target. Changes to the managed
 emulator alone do not expand that compatibility claim.
@@ -69,17 +70,18 @@ Validation on the merged Craterboy revision:
 - The raw frame remains model-native; the future adapter owns conversion to the
   frontend's negotiated software pixel format.
 
-## Remaining readiness gate
+## Re-entry guard
 
-Before Phase 6 creates `Craterboy.Libretro`, Craterboy still needs:
+Do not resume Craterboy integration work from this repository until:
 
-- a documented playable DMG milestone with its differential and ROM-test gates;
-- explicit versioned state serialization with transactional loading;
-- stable save RAM plus defined system RAM, video RAM, and RTC exposure;
-- deterministic frame, reset, input, time, and entropy behavior at the public
-  adapter boundary; and
-- a NativeAOT benchmark with video and audio enabled.
+- Craterboy reaches its own documented playable milestone under its own port
+  plan and correctness gates;
+- the Craterboy repository proposes an adapter based on demonstrated emulator
+  requirements rather than anticipated ones; and
+- a fresh explicit go decision authorizes the publishing and RetroArch
+  integration work.
 
-The next narrow slice should define explicit versioned state serialization and
-transactional loading. Creating the native adapter before that contract settles
-would only move unfinished emulator ownership into the wrong repository.
+Until then, do not scaffold `Craterboy.Libretro`, use this document to prioritize
+Craterboy work, or add CoreKit abstractions solely for that future adapter. The
+two completed slices remain here as historical evidence, not as the beginning
+of an active integration sequence.
